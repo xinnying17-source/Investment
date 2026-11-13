@@ -1,0 +1,819 @@
+<title>投资白话地图</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=ZCOOL+KuaiLe&display=swap">
+<style>
+/* Layout: a hand-drawn-feeling study map — central bubble, five coloured branch clusters, slide-in lesson card */
+:root{
+  --bg:#EEF3F1; --surface:#FFFFFF; --surface2:#F6F9F8; --ink:#17302A; --muted:#5A6D68; --line:#D3DEDA;
+  --accent:#0D7A63; --accent-ink:#FFFFFF; --good:#13804F; --bad:#B42318; --warn-bg:#FFF4E5; --warn-ink:#8A4B00;
+  --b-base:#2F68C8; --b-tools:#0E8565; --b-talk:#C24A0C; --b-analyze:#7442D6; --b-safe:#BE1F48;
+  --b-base-soft:#E6EEFB; --b-tools-soft:#E2F4EE; --b-talk-soft:#FDEEE4; --b-analyze-soft:#EFE8FC; --b-safe-soft:#FCE7EC;
+  --display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  --body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --shadow:0 10px 30px rgba(23,48,42,.12);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F1A17; --surface:#16241F; --surface2:#1B2C27; --ink:#E4EFEB; --muted:#9DB2AB; --line:#2B403A;
+  --accent:#3CC4A0; --accent-ink:#06231B; --good:#4ADE94; --bad:#FF8A80; --warn-bg:#3A2A12; --warn-ink:#FFCB80;
+  --b-base:#7EA8F5; --b-tools:#4FD1A5; --b-talk:#F59A62; --b-analyze:#B596FA; --b-safe:#F67A9A;
+  --b-base-soft:#1B2840; --b-tools-soft:#123228; --b-talk-soft:#3A2416; --b-analyze-soft:#28203F; --b-safe-soft:#3B1A24;
+  --shadow:0 10px 30px rgba(0,0,0,.45); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1A17; --surface:#16241F; --surface2:#1B2C27; --ink:#E4EFEB; --muted:#9DB2AB; --line:#2B403A;
+  --accent:#3CC4A0; --accent-ink:#06231B; --good:#4ADE94; --bad:#FF8A80; --warn-bg:#3A2A12; --warn-ink:#FFCB80;
+  --b-base:#7EA8F5; --b-tools:#4FD1A5; --b-talk:#F59A62; --b-analyze:#B596FA; --b-safe:#F67A9A;
+  --b-base-soft:#1B2840; --b-tools-soft:#123228; --b-talk-soft:#3A2416; --b-analyze-soft:#28203F; --b-safe-soft:#3B1A24;
+  --shadow:0 10px 30px rgba(0,0,0,.45); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.65}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
+h1,h2,h3{font-family:var(--display);font-weight:400;text-wrap:balance;margin:0;letter-spacing:.02em}
+h1{font-size:clamp(28px,5vw,40px)}
+h2{font-size:26px}
+h3{font-size:20px}
+p{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:8px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.top .sub{color:var(--muted);max-width:60ch}
+.meter{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 14px 6px 6px}
+.meter b{font-variant-numeric:tabular-nums}
+.ring{width:38px;height:38px}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin:18px calc(-1*max(16px,env(safe-area-inset-left,0px))) 22px;padding:10px max(16px,env(safe-area-inset-left,0px));background:var(--bg);display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+.tab{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 16px;font-weight:500;white-space:nowrap}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.view[hidden]{display:none!important}
+.hint{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:12px 14px;color:var(--muted);margin-bottom:18px}
+.hint .big{font-size:22px;line-height:1}
+
+/* mind map */
+.map{position:relative;display:grid;gap:28px 40px;grid-template-columns:1fr minmax(180px,220px) 1fr;
+  grid-template-areas:"base center tools" "analyze center safe" "talk talk talk"}
+.map svg.links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.center{grid-area:center;align-self:center;justify-self:center;width:190px;height:190px;border-radius:50%;
+  background:var(--ink);color:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:18px;position:relative;z-index:1;box-shadow:var(--shadow)}
+.center .em{font-size:44px;line-height:1.1}
+.center h2{font-size:24px;margin-top:4px}
+.center small{opacity:.75;font-size:12px}
+.cluster{position:relative;z-index:1;background:var(--surface);border:2px solid var(--c);border-radius:20px;padding:14px;min-width:0}
+.cluster[data-b="base"]{grid-area:base}.cluster[data-b="tools"]{grid-area:tools}.cluster[data-b="talk"]{grid-area:talk}
+.cluster[data-b="analyze"]{grid-area:analyze}.cluster[data-b="safe"]{grid-area:safe}
+.chead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.chead .ico{width:40px;height:40px;border-radius:12px;background:var(--soft);display:grid;place-items:center;font-size:22px;flex:none}
+.chead h3{color:var(--c);font-size:21px}
+.chead .why{font-size:12.5px;color:var(--muted);line-height:1.35}
+.chead .cnt{margin-left:auto;font-size:12px;color:var(--c);background:var(--soft);border-radius:999px;padding:2px 10px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--surface2);border-radius:12px;padding:6px 11px;display:flex;align-items:center;gap:6px;font-size:14px;transition:transform .15s,border-color .15s}
+.chip:hover{border-color:var(--c);transform:translateY(-1px)}
+.chip .e{font-size:17px}
+.chip.known{background:var(--soft);border-color:var(--c)}
+.chip.known::after{content:"✓";color:var(--c);font-weight:700}
+.b-base{--c:var(--b-base);--soft:var(--b-base-soft)}.b-tools{--c:var(--b-tools);--soft:var(--b-tools-soft)}
+.b-talk{--c:var(--b-talk);--soft:var(--b-talk-soft)}.b-analyze{--c:var(--b-analyze);--soft:var(--b-analyze-soft)}.b-safe{--c:var(--b-safe);--soft:var(--b-safe-soft)}
+@media (max-width:820px){
+  .map{grid-template-columns:1fr;grid-template-areas:"center" "base" "tools" "talk" "analyze" "safe";gap:22px}
+  .center{width:160px;height:160px}
+}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(10,20,18,.45);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;z-index:50;top:0;right:0;bottom:0;width:min(470px,100%);background:var(--surface);box-shadow:var(--shadow);
+  transform:translateX(105%);transition:transform .25s ease;display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
+.drawer.on{transform:none}
+.dtop{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.dtop .tag{font-size:12px;color:var(--c);background:var(--soft);border-radius:999px;padding:3px 10px}
+.iconbtn{margin-left:auto;border:1px solid var(--line);background:var(--surface2);border-radius:10px;width:36px;height:36px;display:grid;place-items:center;font-size:18px}
+.dbody{overflow-y:auto;padding:18px 18px 24px;display:flex;flex-direction:column;gap:16px}
+.dtitle .en{color:var(--muted);font-size:13px;letter-spacing:.04em}
+.dtitle h2{color:var(--c);font-size:30px;line-height:1.2}
+.one{font-size:17px;font-weight:500;background:var(--soft);border-radius:14px;padding:12px 14px}
+.scene{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;justify-content:center;background:var(--surface2);border:1px solid var(--line);border-radius:16px;padding:16px 10px}
+.frame{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;min-width:84px;max-width:120px;flex:1}
+.frame .pe{font-size:40px;line-height:1.15}
+.frame .pl{font-size:12.5px;color:var(--muted);line-height:1.35}
+.arrow{align-self:center;color:var(--c);font-size:20px;font-weight:700}
+.blk h4{margin:0 0 4px;font-size:13px;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.trap{background:var(--warn-bg);color:var(--warn-ink);border-radius:14px;padding:12px 14px}
+.trap h4{color:var(--warn-ink)}
+.quiz{border:1px solid var(--line);border-radius:14px;padding:14px}
+.quiz .q{font-weight:500;margin-bottom:10px}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{text-align:left;border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:9px 12px}
+.opt.right{border-color:var(--good);color:var(--good);font-weight:700}
+.opt.wrong{border-color:var(--bad);color:var(--bad)}
+.why{margin-top:10px;font-size:14px}
+.dfoot{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line);flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface2);border-radius:12px;padding:10px 14px;font-weight:500}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.done{background:var(--good);color:var(--surface);border-color:var(--good)}
+.grow{flex:1}
+
+/* flashcards */
+.fc-wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.fc-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.fc-bar .count{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+.card3d{perspective:1200px;height:380px;cursor:pointer}
+.card3d .in{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d}
+.card3d.flip .in{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:22px;background:var(--surface);border:2px solid var(--c);padding:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;overflow:auto}
+.face.back{transform:rotateY(180deg);justify-content:flex-start}
+.face .big{font-size:64px;line-height:1}
+.face h2{color:var(--c);font-size:34px}
+.face .tap{color:var(--muted);font-size:13px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:8px 12px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+@media (prefers-reduced-motion:reduce){.card3d .in,.drawer,.chip{transition:none}}
+
+/* research */
+.section{display:flex;flex-direction:column;gap:14px;margin-bottom:34px}
+.section > p.lead{color:var(--muted);max-width:68ch}
+.layers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:820px){.layers{grid-template-columns:1fr}}
+.layer{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.layer .pic{font-size:42px;line-height:1}
+.layer .lv{font-size:12px;color:var(--muted);letter-spacing:.08em}
+.layer ul{margin:0;padding-left:18px}
+.layer .src{font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+.steps{display:flex;flex-direction:column;gap:10px}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.step summary{list-style:none;display:flex;gap:12px;align-items:center;padding:14px 16px;cursor:pointer}
+.step summary::-webkit-details-marker{display:none}
+.step .n{flex:none;width:34px;height:34px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:700;font-variant-numeric:tabular-nums}
+.step .se{font-size:26px;flex:none}
+.step .st{font-weight:700}
+.step .ss{font-size:13px;color:var(--muted)}
+.step .chev{margin-left:auto;color:var(--muted);transition:transform .2s}
+.step[open] .chev{transform:rotate(90deg)}
+.step .sb{padding:0 16px 16px 62px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:700px){.step .sb{grid-template-columns:1fr;padding-left:16px}}
+.box{background:var(--surface2);border-radius:12px;padding:10px 12px;min-width:0}
+.box h4{margin:0 0 4px;font-size:12.5px;color:var(--muted);letter-spacing:.06em}
+.box.eg{background:var(--b-tools-soft)}
+.box.red{background:var(--warn-bg);color:var(--warn-ink)}
+.box.red h4{color:var(--warn-ink)}
+.box ul{margin:0;padding-left:18px}
+.temp{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;text-align:center}
+.temp div{border-radius:12px;padding:10px 4px;background:var(--surface);border:1px solid var(--line);font-size:13px}
+.temp .e{font-size:28px;display:block}
+@media (max-width:560px){.temp{grid-template-columns:1fr 1fr}}
+.routine{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:700px){.routine{grid-template-columns:1fr}}
+
+/* notes */
+.notes{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:700px){.notes{grid-template-columns:1fr}}
+.notes label{display:flex;flex-direction:column;gap:4px;font-size:13.5px;font-weight:500;min-width:0}
+.notes label.full{grid-column:1/-1}
+.notes input,.notes textarea{font:inherit;color:var(--ink);background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;width:100%}
+.notes textarea{min-height:64px;resize:vertical}
+.notes .act{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.notes .msg{color:var(--muted);font-size:13px}
+
+/* calculator */
+.calc{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px}
+@media (max-width:820px){.calc{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel label{display:flex;flex-direction:column;gap:6px;font-weight:500;font-size:14px}
+.panel input[type=number],.panel select{font:inherit;color:var(--ink);background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.panel input[type=range]{accent-color:var(--accent)}
+.result{font-size:16px}
+.result .num{font-family:var(--display);font-size:34px;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.2}
+.bars{display:flex;flex-direction:column;gap:12px}
+.barrow{display:grid;grid-template-columns:62px minmax(0,1fr);gap:10px;align-items:center}
+.barrow .yr{font-size:13px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.bar{display:flex;height:30px;border-radius:8px;overflow:hidden;background:var(--surface2)}
+.bar .p{background:var(--b-base)}.bar .g{background:var(--accent)}
+.barlabel{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:2px}
+.legend{display:flex;gap:16px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.note{font-size:12.5px;color:var(--muted)}
+
+/* plan */
+.weeks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:760px){.weeks{grid-template-columns:1fr}}
+.week{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.week .wh{display:flex;align-items:center;gap:10px}
+.week .wn{font-family:var(--display);font-size:22px;color:var(--accent)}
+.week .wt{font-weight:700}
+.task{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:10px;background:var(--surface2);cursor:pointer}
+.task input{margin-top:5px;accent-color:var(--accent);width:18px;height:18px;flex:none}
+.task.done span{text-decoration:line-through;color:var(--muted)}
+.task small{display:block;color:var(--muted)}
+.foot{margin-top:40px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>投资白话地图</h1>
+      <p class="sub">点一个泡泡，就学一个概念：一句白话、一组图、一个面包店例子、一个新手坑、一道小题。每次 10 分钟就好。</p>
+    </div>
+    <div class="meter" title="你标记「我懂了」的概念数量">
+      <svg class="ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="var(--line)" stroke-width="5"/><circle id="ringFg" cx="18" cy="18" r="15" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-dasharray="0 100" transform="rotate(-90 18 18)" pathLength="100"/></svg>
+      <span>已懂 <b id="knownN">0</b> / <b id="totalN">0</b></span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="学习区">
+    <button class="tab" role="tab" data-view="map">① 概念地图</button>
+    <button class="tab" role="tab" data-view="cards">② 话术闪卡</button>
+    <button class="tab" role="tab" data-view="research">③ 怎样分析和调查</button>
+    <button class="tab" role="tab" data-view="calc">④ 复利计算</button>
+    <button class="tab" role="tab" data-view="plan">⑤ 4 周起步</button>
+  </nav>
+
+  <!-- MAP -->
+  <section class="view" id="v-map">
+    <div class="hint"><span class="big">🥐</span><p>全站用同一个虚构例子：<b>阿明面包店 Bhd</b>。它有 100 万股，股价 RM2，一年净赚 RM20 万，每股发 RM0.10 股息。记住这家店，大部分概念都会变得很具体。</p></div>
+    <div class="map" id="map">
+      <svg class="links" id="links" aria-hidden="true"></svg>
+      <div class="center" id="centerNode"><div class="em">🌱💰</div><h2>投资</h2><small>让钱替你工作，<br>同时管好风险</small></div>
+    </div>
+  </section>
+
+  <!-- FLASHCARDS -->
+  <section class="view" id="v-cards" hidden>
+    <div class="fc-wrap">
+      <div class="fc-bar">
+        <div class="seg" role="group" aria-label="卡组">
+          <button id="deckAll" aria-pressed="true">全部</button>
+          <button id="deckTodo" aria-pressed="false">还没懂的</button>
+        </div>
+        <button class="btn" id="shuffle">洗牌</button>
+        <span class="count" id="fcCount"></span>
+      </div>
+      <div class="card3d" id="card3d" tabindex="0" role="button" aria-label="点一下翻面">
+        <div class="in">
+          <div class="face front" id="fcFront"></div>
+          <div class="face back" id="fcBack"></div>
+        </div>
+      </div>
+      <div class="fc-bar">
+        <button class="btn" id="fcPrev">上一张</button>
+        <button class="btn grow" id="fcAgain">还不熟，等下再看</button>
+        <button class="btn primary grow" id="fcKnow">我懂了</button>
+      </div>
+      <p class="note">先看正面，自己用一句话说出意思，再翻面对答案。能自己说出来，才算真的懂。</p>
+    </div>
+  </section>
+
+  <!-- RESEARCH -->
+  <section class="view" id="v-research" hidden>
+    <div class="section">
+      <h2>分析市场：天气 → 街道 → 店铺</h2>
+      <p class="lead">看市场就像决定要不要在某条街开店。先看天气（整体经济），再看这条街旺不旺（行业），最后才看这间店本身（公司）。新手的时间，七成花在「店铺」就够了。</p>
+      <div class="layers">
+        <div class="layer b-base"><div class="pic">⛅</div><div class="lv">第 1 层 · 宏观</div><h3 style="color:var(--c)">天气：经济好不好？</h3>
+          <ul><li><b>利率 OPR</b>：国家银行调高 → 借钱变贵，股市常受压，定存利息变高</li><li><b>通胀</b>：物价涨太快，公司成本上升</li><li><b>令吉汇率</b>：影响进口成本和出口公司收入</li><li><b>美国利率、全球经济</b>：外资会跟着流进流出</li></ul>
+          <div class="src">去哪看：国家银行 BNM 网站（OPR 公告）、统计局 DOSM（通胀、GDP）、财经新闻</div></div>
+        <div class="layer b-tools"><div class="pic">🛣️</div><div class="lv">第 2 层 · 行业</div><h3 style="color:var(--c)">街道：这行在变旺还是变冷？</h3>
+          <ul><li>需求在变大还是变小？（例：大家越来越常网购）</li><li>是不是政府政策推动或限制的行业？</li><li>行业竞争激烈吗？价格战多吗？</li><li>经济差时，这行会不会第一个被砍？</li></ul>
+          <div class="src">去哪看：Bursa Malaysia 的行业指数、券商行业报告、新闻、你身边的真实生活观察</div></div>
+        <div class="layer b-talk"><div class="pic">🏪</div><div class="lv">第 3 层 · 公司</div><h3 style="color:var(--c)">店铺：这间店值得买吗？</h3>
+          <ul><li>它怎么赚钱？我能用一句话说出来吗？</li><li>赚钱稳不稳？欠很多钱吗？</li><li>现金真的有进口袋吗？</li><li>现在的价格贵不贵？</li></ul>
+          <div class="src">用下面的「调查一家公司 7 步」</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>市场情绪温度计</h3>
+      <p class="lead">除了数字，也要感觉一下「大家现在是什么心情」。最好的买点常出现在大家害怕的时候，最危险的买点常出现在大家狂欢的时候。</p>
+      <div class="temp">
+        <div><span class="e">😱</span>极度恐惧<br><small>新闻全是坏消息</small></div>
+        <div><span class="e">😟</span>担心</div>
+        <div><span class="e">😐</span>平常</div>
+        <div><span class="e">😄</span>乐观</div>
+        <div><span class="e">🤑</span>极度贪婪<br><small>没投资过的亲戚也在问</small></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>调查一家公司 7 步</h2>
+      <p class="lead">点开每一步。每步都有：做什么、去哪里找、阿明面包店示范、红旗警告。第一次做大约 1–2 小时，熟练后 30 分钟。</p>
+      <div class="steps" id="steps"></div>
+    </div>
+
+    <div class="section">
+      <h3>每周 30 分钟市场习惯</h3>
+      <div class="routine">
+        <div class="layer"><div class="pic">📰</div><b>10 分钟：看天气</b><p>本周有没有 OPR、通胀、汇率的大新闻？只记一句：「对我关注的公司是好还是坏？」</p></div>
+        <div class="layer"><div class="pic">👀</div><b>10 分钟：看观察名单</b><p>你关注的 3–5 家公司有没有新公告（季度业绩、股息、大股东买卖）？</p></div>
+        <div class="layer"><div class="pic">✍️</div><b>10 分钟：写笔记</b><p>更新下面的调查笔记。写下来，才不会被情绪带着走。</p></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>我的调查笔记</h2>
+      <p class="lead">每研究一家公司就填一次。内容只存在你这个浏览器里，可以一键复制到你自己的笔记 App。</p>
+      <form class="notes" id="notes">
+        <label>公司名称<input id="n-name" placeholder="例：阿明面包店 Bhd"></label>
+        <label>它怎么赚钱（一句话）<input id="n-biz" placeholder="例：卖面包给住宅区和咖啡店"></label>
+        <label>营收 / 利润 5 年趋势<input id="n-profit" placeholder="例：营收稳步上升，利润有 1 年下跌"></label>
+        <label>欠债情况<input id="n-debt" placeholder="例：现金比借款多"></label>
+        <label>现金流<input id="n-cash" placeholder="例：营运现金流连续 5 年为正"></label>
+        <label>护城河<input id="n-moat" placeholder="例：和 40 家咖啡店签长期供货合约"></label>
+        <label>P/E 和股息率<input id="n-val" placeholder="例：P/E 10（同行约 15），股息率 5%"></label>
+        <label>最大的风险<input id="n-risk" placeholder="例：面粉价格大涨"></label>
+        <label class="full">我想买的理由<textarea id="n-why"></textarea></label>
+        <label class="full">什么情况我会卖（先写好出口）<textarea id="n-exit" placeholder="例：连续 2 季亏钱，或老板开始大量卖股"></textarea></label>
+        <div class="act"><button type="button" class="btn primary" id="copyNotes">复制笔记</button><button type="button" class="btn" id="clearNotes">清空</button><span class="msg" id="notesMsg" aria-live="polite">自动保存中</span></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- CALC -->
+  <section class="view" id="v-calc" hidden>
+    <div class="section">
+      <h2>复利：看钱怎么滚雪球</h2>
+      <p class="lead">蓝色是你自己放进去的钱，绿色是「钱生的钱」。拉长年份，看绿色怎么越变越大。</p>
+      <div class="calc">
+        <div class="panel">
+          <label for="c-month">每月投入（RM）<input type="number" id="c-month" value="300" min="0" step="50"></label>
+          <label for="c-years">投资年数：<span id="c-yv">20</span> 年<input type="range" id="c-years" min="1" max="40" value="20"></label>
+          <label for="c-rate">假设年回报
+            <select id="c-rate">
+              <option value="2.5">2.5% · 接近定存</option>
+              <option value="4">4% · 偏保守</option>
+              <option value="6" selected>6% · 混合型</option>
+              <option value="8">8% · 偏股票（波动大）</option>
+            </select></label>
+          <div class="result" id="c-result"></div>
+        </div>
+        <div class="panel">
+          <div class="legend"><span><i style="background:var(--b-base)"></i>你放进去的本金</span><span><i style="background:var(--accent)"></i>钱生的钱</span></div>
+          <div class="bars" id="c-bars"></div>
+          <p class="note">这是简化示例：假设每年回报固定、每月复利。真实投资每年会上下波动，回报不保证，也没有扣除费用和通胀。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLAN -->
+  <section class="view" id="v-plan" hidden>
+    <div class="section">
+      <h2>4 周起步计划</h2>
+      <p class="lead">每天 10–15 分钟，适合下班后做。打勾会记在你的浏览器里。目标不是一个月内变专家，而是养成「先懂再投」的习惯。</p>
+      <div class="weeks" id="weeks"></div>
+    </div>
+  </section>
+
+  <p class="foot">本页只用于学习，不构成投资建议。阿明面包店是虚构例子；所有数字都是为了说明概念的示例，不是预测。执照、保障额和费用等以 SC、BNM、PIDM、EPF 等官方最新公告为准。</p>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dTitle">
+  <div class="dtop"><span class="tag" id="dTag"></span><span class="tag" id="dPos" style="background:transparent;color:var(--muted)"></span><button class="iconbtn" id="dClose" aria-label="关闭">✕</button></div>
+  <div class="dbody" id="dBody"></div>
+  <div class="dfoot"><button class="btn" id="dPrev">← 上一个</button><button class="btn grow" id="dKnow">我懂了</button><button class="btn primary" id="dNext">下一个 →</button></div>
+</aside>
+
+<script>
+const BR = {
+  base:{name:'底层道理',ico:'🧠',why:'为什么要投资？钱怎么变多？'},
+  tools:{name:'投资工具',ico:'🧰',why:'钱可以放在哪里？'},
+  analyze:{name:'分析方法',ico:'🔍',why:'怎么判断好不好、贵不贵？'},
+  safe:{name:'避坑心法',ico:'🛡️',why:'怎样不亏大钱、不被骗？'},
+  talk:{name:'市场话术',ico:'💬',why:'听懂别人在说什么'}
+};
+const ORDER = ['base','tools','talk','analyze','safe'];
+// [id, branch, emoji, title, en, oneLiner, pic[[emoji,label]], example, trap, quiz[q, opts, answerIdx, why]]
+const C = [
+['inflation','base','🍜','通胀','Inflation','东西越来越贵，同样的 RM100 能买到的东西越来越少。',
+ [['🍜','以前一碗 RM5'],['⏳','过了几年'],['🍜','现在 RM7']],
+ '银行利息 2%，物价每年涨 3%，你的钱数字变多了，但能买的东西其实每年少了约 1%。投资的第一个目的，就是跑赢通胀。',
+ '以为钱放储蓄户口就「不会亏」。数字没变少，但购买力在悄悄变少。',
+ ['物价每年涨 3%，存款利息 2%，你的钱实际上？',['变多了','能买的东西变少了','完全没变化'],1,'数字多了 2%，但东西贵了 3%，能买的反而少了。']],
+['compound','base','⛄','复利','Compound interest','利息会再生利息，像滚雪球，越滚越大、越滚越快。',
+ [['💵','本金'],['➕','生出利息'],['⛄','利息又生利息']],
+ '每月放 RM300，假设年回报 6%：20 年你自己放了 RM72,000，最后约 RM138,600。多出来的约 RM66,600 是「钱生的钱」（示例假设，非保证）。去「复利计算」玩玩看。',
+ '等「有钱了才开始」。复利最需要的是时间，越早开始雪球滚越久。中途常常拿出来花，也会打断雪球。',
+ ['复利效果最大的关键是？',['一次放很多钱','时间够长、不中断','天天买卖'],1,'雪球需要够长的坡道。时间是复利的燃料。']],
+['risk','base','🎢','风险与回报','Risk & Return','想赚得多，就要接受价格摇得更厉害，甚至会亏。',
+ [['🚶','定存：慢但稳'],['🚲','基金：中等'],['🎢','股票：刺激']],
+ '定存一年几乎不会亏，但回报低；股票一年可能 +20%，也可能 -20%。世界上没有「高回报又零风险」这回事。',
+ '有人说「保证每月 10% 回报、零风险」，几乎可以肯定是骗局。',
+ ['以下哪一句最可疑？',['长期平均回报约 6%，有些年会亏','保证每月 5%，绝对不会亏','定存利息低但稳定'],1,'「保证」+「高回报」+「零风险」三个放在一起，是骗局的标准配方。']],
+['diversify','base','🧺','分散投资','Diversification','不要把所有鸡蛋放在同一个篮子里。',
+ [['🧺','全放一个篮子'],['💥','跌一跤全破'],['🧺','分开放更安全']],
+ '只买阿明面包店，它出事你就重伤；持有 20 家不同行业的公司（或一个指数 ETF），一家出事影响就很小。',
+ '买了 5 只股票，但全是同一行业，例如全是科技股。这不算真正分散，一个坏消息会一起跌。',
+ ['以下哪个组合最分散？',['5 家银行股','1 只追踪大市的 ETF + 定存','3 种加密货币'],1,'ETF 里有几十家不同行业的公司，再加上定存，风险来源最不同。']],
+['liquidity','base','💧','流动性','Liquidity','需要钱的时候，能多快、多少损失地换回现金。',
+ [['💧','储蓄户口：马上拿'],['🧊','股票：几天，价格不一定好'],['🏔️','房子/EPF：很慢或不能拿']],
+ '急需用钱时，被逼在股价低的时候卖股票，就会把「纸上亏损」变成真的亏损。',
+ '把应急的钱也拿去买股票。',
+ ['下个月可能要用的钱，最适合放在？',['股票','储蓄户口/短期定存','房地产'],1,'短期要用的钱，最重要的是随时能拿、不会缩水。']],
+['horizon','base','⏳','投资期限','Time horizon','这笔钱多久后要用？这决定了它可以放在哪里。',
+ [['📅','1 年内要用 → 储蓄/定存'],['🗓️','3–5 年 → 稳健为主'],['🕰️','10 年以上 → 能承受波动']],
+ '明年要付房子首付的钱放股市，刚好遇到大跌，就只能亏着卖。退休钱离现在还有 30 年，短期上下摇就不太重要。',
+ '用短期要用的钱去做长期投资。',
+ ['哪笔钱比较适合放进股票型投资？',['3 个月后的旅行费','20 年后的退休钱','下个月的房租'],1,'时间越长，越有机会熬过下跌、等到回升。']],
+['allocation','base','🍱','资产配置','Asset allocation','先决定钱「分几格」，再决定每格买什么。像便当分格。',
+ [['🧯','应急格'],['🍚','稳健格'],['🍗','成长格']],
+ '例如：先把 3–6 个月生活费放在应急格，其余按你的年龄和心理承受力，分到稳健（定存、债券）和成长（股票、ETF）。长期结果很多时候更取决于怎么分格，而不是挑中哪一只股票。',
+ '只顾着找「哪只会涨」，从没想过整体比例。',
+ ['开始投资的第一步应该是？',['找下一只会涨 10 倍的股','先决定钱怎么分格','听朋友推荐'],1,'先有便当盒的格子，才知道每格放多少菜。']],
+
+['fd','tools','🏦','定期存款','Fixed Deposit (FD)','把钱借给银行一段时间，银行给你固定利息。',
+ [['🏦','存进银行'],['🔒','锁 1–12 个月'],['💵','拿回本金+利息']],
+ '在马来西亚，PIDM 保障每位存款人在每家成员银行最高 RM250,000（以 PIDM 官方说明为准）。很适合放应急金和短期要用的钱。',
+ '提早领出可能拿不到利息；长期只放定存，可能跑不赢通胀。',
+ ['定存最适合用来？',['追求 10 年翻倍','放应急金和短期要用的钱','做短线赚快钱'],1,'定存的强项是稳和保本，不是高回报。']],
+['stock','tools','🍰','股票','Stock / Share','买一家公司的一小块。公司越赚钱，你那一块就越值钱。',
+ [['🏪','阿明面包店'],['🔪','切成 100 万块'],['🍰','你买其中 100 块']],
+ '在 Bursa Malaysia，一般以 1 手 = 100 股来买卖。你要先开 CDS 户口和券商交易户口。买 1 手阿明面包店 = RM2 × 100 = RM200（未含手续费）。',
+ '把股票当彩票，只看价格跳动，不看公司本身。',
+ ['买了一家公司的股票，你其实拥有？',['公司的一小部分','借给公司的钱','一张彩票'],0,'股东就是公司的部分老板，所以要关心这门生意好不好。']],
+['bond','tools','🧾','债券 / 伊斯兰债券','Bond / Sukuk','你把钱借给政府或公司，对方定期付你利息，到期还本金。',
+ [['🧾','借据'],['📆','定期收利息'],['💵','到期还钱']],
+ '一般比股票稳，但如果借钱的一方经营失败，你可能拿不回全部的钱（这叫信用风险）。',
+ '给的利息特别高，通常代表借钱的一方风险也特别高。',
+ ['债券利息特别高，通常代表？',['很安全的好机会','借钱的人风险较高','银行在送钱'],1,'别人愿意付更高利息，往往因为没人愿意借给他。']],
+['ut','tools','🧑‍🍳','单位信托基金','Unit Trust','一群人把钱交给基金经理，由他帮大家买一篮子投资。',
+ [['👥','很多人出钱'],['🧑‍🍳','基金经理操盘'],['🧺','一篮子股票/债券']],
+ '方便又自动分散。但有费用：买入时的销售费（Sales charge），每年的管理费（Management fee）。费用会直接吃掉回报。',
+ '只听代理说「过去表现很好」。记得问清楚全部费用，并查看基金说明书。',
+ ['买单位信托之前，最该先问？',['经理帅不帅','总共要付多少费用','去年涨最多的是哪只'],1,'费用是确定会发生的，回报却不确定。']],
+['etf','tools','🛒','ETF 交易所交易基金','Exchange-Traded Fund','把一篮子股票打包成一个，可以像股票一样在交易所买卖。',
+ [['🛒','一个购物篮'],['📦','里面几十家公司'],['🏷️','一个价格买全部']],
+ '例如追踪富时隆综指（FBM KLCI，30 家大公司）的 ETF，买一份就等于分散持有这些公司。费用通常比主动管理的基金低。',
+ '不是所有 ETF 都分散。有些只追一个行业，有些带杠杆（放大涨跌）。看清楚它追踪什么。',
+ ['ETF 对新手最大的好处是？',['保证赚钱','一次买进很多公司、费用较低','可以每天翻倍'],1,'ETF 是「懒人分散」工具，但不保证赚钱。']],
+['reit','tools','🏬','房地产信托','REIT','一群人一起当商场或办公楼的房东，收了租金后分钱。',
+ [['🏬','商场/办公楼'],['💰','收租金'],['🫴','大部分分给你']],
+ '马来西亚的 REIT 通常会把大部分可分配收入发给持有人，所以股息率通常比一般股票高。几百块就能「当房东」。',
+ '利率上升时 REIT 价格常受压；商场人少、租户跑掉，租金收入就会降。',
+ ['REIT 的钱主要来自？',['租金','卖房子炒价','政府补贴'],0,'所以要看它的商场/大楼有没有人租、租金稳不稳。']],
+['epf','tools','🏛️','EPF / PNB 基金','EPF / ASB / ASM','马来西亚人最常见的「被动投资」。',
+ [['🧑‍💼','工资自动扣一部分'],['🏛️','EPF 帮你投资'],['👴','退休时用']],
+ 'EPF 每年宣布股息，你可以在 KWSP i-Akaun 查余额。PNB 的 ASB 只限土著；ASM 系列开放给所有马来西亚公民（单位和名额以官方为准）。',
+ '以为有 EPF 就一定够退休。先算算你退休后每月要多少钱，再看差多少。',
+ ['以下关于 EPF 哪个对？',['完全不用理','它是你已经在做的长期投资，值得定期查看','可以随时全部领出'],1,'EPF 是你最大的长期投资之一，了解它是第一步。']],
+['gold','tools','🪙','黄金','Gold','不会生利息，但常在经济乱的时候被拿来保值。',
+ [['🪙','黄金'],['🌪️','经济不稳'],['🛡️','常被买来避险']],
+ '可以买实体金条/金币，或开银行的黄金户口。要注意「买价」和「卖价」之间的差价，买入当下就已经小亏一点。',
+ '小心「黄金计划，保证每月回报」的方案，很多是骗局。',
+ ['黄金和股票最大的不同是？',['黄金不会产生利润或股息','黄金一定涨','黄金没有波动'],0,'黄金本身不赚钱，它只靠别人愿意出更高价买。']],
+['crypto','tools','⚡','加密货币','Crypto','数字资产，价格一天涨跌 10% 以上很常见，波动极大。',
+ [['🪙','比特币等'],['🎢','暴涨暴跌'],['⚠️','只放输得起的钱']],
+ '在马来西亚，应使用证券委员会（SC）注册的数字资产交易所（DAX）。如果要碰，只用全部亏光也不影响生活的钱。',
+ '「朋友介绍的新币，一定会涨 100 倍」是很高风险的信号，甚至可能是骗局。',
+ ['如果想试试加密货币，最合理的做法是？',['借钱买','用输光也不影响生活的小钱，在持牌平台买','拿应急金买'],1,'高波动的东西，只能用「输得起」的钱。']],
+
+['bullbear','talk','🐂','牛市 / 熊市','Bull / Bear market','牛用角往上顶 = 大涨的时期；熊用掌往下拍 = 大跌的时期。',
+ [['🐂','牛：往上顶'],['🐻','熊：往下拍']],
+ '常见说法：从高点跌超过 20% 叫熊市。熊市会让人很痛苦，但历史上市场最后都走出过熊市（不代表每只股票都会回来）。',
+ '牛市里人人都觉得自己是投资天才，这时最容易冲动加码。',
+ ['「市场进入熊市」意思是？',['大跌了一段时间','市场休市','动物股大涨'],0,'熊掌往下拍，代表下跌。']],
+['bluechip','talk','💎','蓝筹股','Blue chip','规模大、历史久、赚钱比较稳定的大公司。',
+ [['🏛️','大而老牌'],['📊','赚钱稳定'],['💎','名字来自赌场最贵的蓝色筹码']],
+ '组成富时隆综指（FBM KLCI）的大银行、电讯、公用事业公司，常被叫做蓝筹股。',
+ '蓝筹不代表不会跌，也不代表价格便宜。',
+ ['蓝筹股的意思是？',['股价一定很高','大型稳健的公司','一定会涨'],1,'蓝筹讲的是公司的质量和规模，不是保证。']],
+['dividend','talk','🥖','股息 / 股息率','Dividend / Yield','公司把赚到的钱分一部分给股东。股息率 = 一年股息 ÷ 股价。',
+ [['🥖','面包店赚钱'],['✂️','分出一部分'],['🫴','发给股东']],
+ '阿明面包店股价 RM2，一年每股发 RM0.10 → 股息率 = 0.10 ÷ 2 = 5%。你有 1,000 股，一年收 RM100。',
+ '股息率突然变很高，可能是股价暴跌造成的。要查原因，别只看数字。',
+ ['股价 RM4，一年股息 RM0.20，股息率是？',['2%','5%','20%'],1,'0.20 ÷ 4 = 0.05 = 5%。']],
+['marketcap','talk','🏢','市值','Market cap','整家公司在市场上值多少钱 = 股价 × 总股数。',
+ [['🍰','一块 RM2'],['✖️','共 100 万块'],['🏪','整家店 RM200 万']],
+ '阿明面包店 100 万股 × RM2 = 市值 RM200 万。判断公司大小要看市值，不是看股价。',
+ '「这只股才 RM0.10，好便宜！」股价低不代表公司便宜，可能它的股数特别多。',
+ ['判断一家公司大不大，要看？',['股价高低','市值','名字好不好听'],1,'RM0.10 × 100 亿股，比 RM50 × 100 万股的公司还大。']],
+['pe','talk','🔟','市盈率','P/E ratio','你付的价钱，要靠公司赚多少年才能「回本」。',
+ [['🏷️','股价 RM2'],['➗','每股一年赚 RM0.20'],['🔟','P/E = 10']],
+ 'P/E 10 ≈ 照现在的利润，大约 10 年回本。要和同行、和它自己过去比才有意义：同行 P/E 都是 15，阿明 10，可能比较便宜，也可能大家觉得它前景较差。',
+ 'P/E 低不一定便宜，可能是市场预期它利润会下滑。',
+ ['股价 RM3，每股年赚 RM0.30，P/E 是？',['0.1','10','90'],1,'3 ÷ 0.30 = 10。']],
+['players','talk','🐋','散户 / 机构 / 庄家','Retail / Institution / Syndicate','散户 = 普通人；机构 = 基金、EPF 这类大钱；庄家 = 想操控某只股价的大户。',
+ [['🐟','散户：小鱼'],['🐋','机构：鲸鱼'],['🦈','庄家：鲨鱼']],
+ '小型股每天买卖的人少，少数大户就能把价格推上推下。',
+ '跟着「庄家要拉了」的消息冲进去，常常就是被选来接货的人。',
+ ['为什么小型股比较容易被操控？',['它们都很差','买卖的人少，少量钱就能推动价格','政府允许'],1,'池子小，鲨鱼一动水就大翻。']],
+['chase','talk','🏃','追高 / 抄底','Chasing / Buying the dip','追高 = 涨很多后怕错过才冲进去；抄底 = 跌了以后想捡便宜。',
+ [['🏃','追高：追着开走的巴士'],['🔪','抄底：接住正在掉的刀']],
+ '抄底前先问：它跌，是因为大家恐慌（可能是机会），还是公司真的变差了（价值真的掉了）？',
+ '「已经跌了很多 = 很便宜」是新手最常见的误解。',
+ ['股价跌了 50%，你首先应该？',['马上买','查清楚为什么跌','借钱加码'],1,'先查原因，再决定。跌了还可以再跌。']],
+['stuck','talk','🪤','套牢 / 止损 / 割肉','Bag holder / Stop loss / Cut loss','套牢 = 买了就跌，舍不得卖；止损 = 事先定好的出口；割肉 = 亏着卖掉。',
+ [['🪤','套牢'],['🚪','止损：预先留出口'],['✂️','割肉']],
+ '买之前就写下：「如果公司出现 X 问题，或我的买入理由不成立，我就卖。」这就是你的出口。',
+ '「不卖就不算亏。」其实亏损已经发生，只是你没承认。',
+ ['止损最好什么时候决定？',['跌了 50% 再想','买入之前就写好','永远不要止损'],1,'冷静的时候定规则，慌张的时候才不会乱来。']],
+['correction','talk','🧗','回调 / 崩盘','Correction / Crash','回调 = 涨多了停下来休息（常指跌约 10%）；崩盘 = 短时间暴跌。',
+ [['🧗','爬山'],['🪑','停下休息 = 回调'],['🪨','滚下山 = 崩盘']],
+ '回调在股市很常见，几乎每隔一段时间就会发生。长期投资的人，要预先接受它会来。',
+ '一回调就恐慌，把所有东西卖掉。',
+ ['市场回调 10%，对长期投资者来说通常是？',['世界末日','正常现象','一定要全部卖掉'],1,'回调是股市的日常，不是例外。']],
+['leek','talk','🌱','割韭菜','Getting fleeced','新手在高点冲进、在低点恐慌卖出，钱被老手赚走，像韭菜一批批被割。',
+ [['🌱','新手进场'],['✂️','被收割'],['🌱','下一批又来']],
+ '避免被割：不追热门、不借钱、买前写理由、懂了才买、小额开始。',
+ '以为这次不一样，自己一定会比别人快。',
+ ['哪个习惯最容易被「割韭菜」？',['看到群组喊买就冲','每月定投 ETF','买前做调查'],0,'跟风冲进去，往往买在最高点。']],
+['dca','talk','📅','定期定额','DCA (Dollar-cost averaging)','每个月固定投入同样金额，不管涨跌。',
+ [['📅','每月 RM300'],['⬇️','价低买多份'],['⬆️','价高买少份']],
+ '价格 RM1 时，RM300 买 300 份；价格 RM1.50 时，只买 200 份。自动做到「低价多买、高价少买」，也不用猜时机。',
+ '定投的前提是投资标的长期会成长。定投一家越来越差的公司，一样会亏。',
+ ['定期定额最大的好处是？',['保证赚钱','不用猜时机、减少情绪影响','可以快速致富'],1,'它是纪律工具，不是赚钱保证。']],
+['volatility','talk','🌊','波动','Volatility','价格摇晃的幅度。摇得越厉害，越考验你的心脏。',
+ [['🚤','小湖：小浪'],['🌊','大海：大浪']],
+ '波动不等于亏损。只有在低点被迫卖出，亏损才变成真的。所以「不急用的钱」很重要。',
+ '看到一天跌 5% 就慌，结果卖在最低点。',
+ ['波动大的投资，最不适合用哪种钱？',['10 年后才用的钱','下个月要付的房租','闲钱'],1,'短期要用的钱，经不起大浪。']],
+['short','talk','📤','做空','Short selling','先借股票来卖掉，等它跌了再买回来还，赚中间差价。',
+ [['📤','借来先卖 RM2'],['📉','跌到 RM1.50'],['📥','买回来还，赚 RM0.50']],
+ '做空的亏损理论上没有上限，因为股价可以一直涨。新手不建议碰。',
+ '看到某只股跌了，就想跟风做空。',
+ ['做空的人希望股价？',['上涨','下跌','不变'],1,'先高价卖、后低价买，赚的是下跌的钱。']],
+['position','talk','🥛','仓位','Position size','你把多少比例的钱放在某个投资上。满仓 = 全放进去；轻仓 = 只放一点。',
+ [['🥛','轻仓：杯子 1/4'],['🥤','半仓'],['🫗','满仓：满到快溢出']],
+ '新手常用的规则：单一股票不超过总投资的 5–10%。这样就算一家出事，也不会伤筋动骨。',
+ '对某只股太有信心，一次全押。',
+ ['你有 RM10,000 投资金，单一股票比较合理的上限大约是？',['RM500–1,000','RM5,000','RM10,000'],0,'控制每一注的大小，是活下来的关键。']],
+['value','talk','⚖️','价格 vs 价值','Price vs Value','价格是你付的，价值是你得到的。好公司也可能被炒得太贵。',
+ [['🏷️','价格：标签上的数字'],['⚖️','价值：东西真正值多少']],
+ '你算出阿明面包店值大约 RM2 一股，市场狂热时炒到 RM5，这时买进去就是付太多，即使它是好公司。',
+ '「好公司 = 好投资」。好公司 + 合理价格，才是好投资。',
+ ['好公司在什么情况下可能是坏投资？',['价格远高于它的价值','它发股息','它很有名'],0,'再好的东西，买太贵也会亏。']],
+['ipo','talk','🔔','首次公开募股','IPO','公司第一次把股份卖给公众，开始在交易所上市。',
+ [['🏪','私人小店'],['🔔','敲钟上市'],['👥','公众可以买']],
+ '在 Bursa 买新股要看招股书（Prospectus），申请常常要抽签（ballot）。',
+ '新闻常报道新股首日大涨，但首日跌破发行价的也不少。',
+ ['申请 IPO 前最该看什么？',['招股书里的生意和风险','网友说会涨多少','名字'],0,'招股书就是这家公司的「自我介绍 + 风险声明」。']],
+['pumpdump','talk','🎈','拉高出货','Pump & dump','有人先低价囤货，再放消息把价格炒高，等散户冲进来就全卖掉。',
+ [['🎈','把价格吹大'],['📣','群组狂喊买'],['💨','他们卖光，你接手']],
+ '常见于 Telegram / WhatsApp 的「内幕群」，以及每天成交量很低的小型股。',
+ '收到「明天会涨，快买」的消息时，问自己：他为什么要免费告诉我？',
+ ['「内幕群」叫你明天一早买某只小型股，最可能是？',['真心帮你','需要有人接他的货','政府消息'],1,'真的内幕消息不会在群组免费派发。']],
+
+['fundamental','analyze','🔍','基本面分析','Fundamental analysis','研究「这间店本身好不好、值多少钱」。新手最该先学这个。',
+ [['🔍','看生意'],['📒','看账本'],['💰','算值多少']],
+ '阿明面包店：顾客多吗？利润在增长吗？欠债多吗？老板可靠吗？现在的股价比它的价值高还是低？',
+ '只看新闻标题或别人推荐，从来不看公司自己的报告。',
+ ['基本面分析主要在看？',['公司的生意和财务','明天会涨还是跌','线图的形状'],0,'先看懂公司，才有资格判断价格。']],
+['statements','analyze','📒','财报三张表','Financial statements','损益表 = 今年赚多少；资产负债表 = 家底和欠款；现金流量表 = 钱包里真的进了多少钱。',
+ [['🧾','损益表：成绩单'],['🏠','资产负债表：家底'],['👛','现金流量表：钱包']],
+ '一家公司可能「账面赚钱」，但客户一直欠钱不还，现金流量表就会是负数。这是重要的警讯。',
+ '只看「净利」一个数字就下结论。',
+ ['账面赚钱，但现金流一直是负的，代表？',['完全没问题','钱可能没真的收进来，要查原因','公司很有钱'],1,'利润是「应该收到」，现金是「真的收到」。']],
+['moat','analyze','🏰','护城河','Economic moat','让对手很难抢走顾客的长期优势。',
+ [['🏰','城堡 = 公司'],['🌊','护城河 = 优势'],['⚔️','对手过不来']],
+ '常见护城河：强品牌、更低成本、换用很麻烦（例如换银行、换系统）、执照、网络效应。阿明面包店和 40 家咖啡店签了长期供货合约，就是一条小护城河。',
+ '很红 ≠ 护城河。一阵热潮过去，顾客就走了。',
+ ['以下哪个最像护城河？',['这季广告很多','客户换用别家非常麻烦','股价最近大涨'],1,'顾客「走不掉」，才是长期优势。']],
+['technical','analyze','👣','技术分析','Technical analysis','不看公司，看「人群买卖留下的脚印」（价格和成交量）来猜下一步。',
+ [['👣','脚印'],['👥','看人群往哪走'],['🎯','猜买卖时机']],
+ '你觉得线条图太抽象？没关系，新手可以先跳过。先学会看懂公司，以后再用它辅助决定买卖时机。',
+ '只看图、不看公司，很容易变成赌博。',
+ ['对新手来说，比较好的学习顺序是？',['先学技术分析','先学基本面，技术面之后再说','两个都不学'],1,'先知道买的是什么，再研究什么时候买。']],
+['macro','analyze','⛅','宏观分析','Macro analysis','看「天气」：利率、通胀、汇率、经济好坏，会影响所有公司。',
+ [['☀️','经济好'],['🌧️','经济差'],['🌡️','利率/通胀 = 温度计']],
+ '国家银行（BNM）调高 OPR → 借钱变贵 → 公司和买房的人压力变大 → 股市常受压；但存款利息会变高。',
+ '天天猜宏观，忘了真正的好公司在坏天气里也能活下来。',
+ ['利率上升时，通常哪个比较受惠？',['定存的利息','欠很多债的公司','房贷很高的人'],0,'利率高，存款利息就高；欠债的人则压力变大。']],
+['sentiment','analyze','😱','市场情绪','Market sentiment','市场总是在「贪婪」和「恐惧」之间来回摆。',
+ [['🤑','贪婪：人人喊发财'],['😱','恐惧：人人想逃']],
+ '巴菲特的名言：「别人贪婪时我恐惧，别人恐惧时我贪婪。」好公司在大家恐慌时，常会变便宜。',
+ '连从来不投资的亲戚都在讨论某只股或某个币时，通常已经很热了。',
+ ['大家都在恐慌卖股时，冷静的投资者会？',['跟着卖','检查好公司是否变便宜了','删掉 App'],1,'恐慌时价格常跌得比价值多。']],
+
+['scam','safe','🚨','识别投资骗局','Scam check','4 个红旗：保证高回报、拉人头有奖、催你马上决定、没有执照。',
+ [['💯','保证回报'],['👥','拉人头'],['⏰','催你快'],['🚫','没执照']],
+ '投之前去证券委员会（SC）网站查「Investor Alert List」和持牌名单，也可以查国家银行（BNM）的 Financial Consumer Alert 名单。',
+ '「我朋友已经拿到回报了。」早期参与者的回报，常常就是后来者的本金。',
+ ['以下哪个是骗局红旗？',['公司有 SC 执照','「今天不加入就没名额了」','回报会上下波动'],1,'制造紧迫感，是为了不让你冷静查证。']],
+['emergency','safe','🧯','应急基金','Emergency fund','先存好 3–6 个月生活费，放在随时能拿的地方，再开始投资。',
+ [['🧯','灭火器'],['🏥','失业/生病'],['😌','不用被逼卖股票']],
+ '每月开销 RM2,500 → 应急金目标 RM7,500–15,000。放在储蓄户口或短期定存。',
+ '还没有应急金就把钱全投进股市，一出事只能低价卖。',
+ ['每月开销 RM3,000，应急金至少大约？',['RM3,000','RM9,000','RM0'],1,'3 个月 × RM3,000 = RM9,000 起跳。']],
+['circle','safe','⭕','能力圈','Circle of competence','只投资你能用一句话解释清楚的东西。',
+ [['⭕','你懂的范围'],['✅','圈内：可以研究'],['❌','圈外：先别碰']],
+ '从你熟悉的领域开始：你的工作行业、你每天用的产品和服务。你比一般人更容易判断这些生意好不好。',
+ '投资自己完全不懂的东西，只因为「听说会涨」。',
+ ['你说不出一家公司怎么赚钱，应该？',['先买再说','先别买，弄懂再说','买更多'],1,'说不清楚 = 还在能力圈外。']],
+['fomo','safe','📱','害怕错过','FOMO','看到别人赚钱，自己急着冲进去。',
+ [['📱','看到别人晒盈利'],['😰','心急'],['🏃','冲动买入']],
+ '给自己定「24 小时规则」：想买的东西先写下理由，隔天冷静了再决定。',
+ '用别人的截图来做投资决定。社交媒体上大多只晒赢，不晒输。',
+ ['看到朋友晒某只股赚了 50%，最好的反应是？',['马上买','加入观察名单，自己做调查','借钱买'],1,'把冲动变成研究。']],
+['fees','safe','🐜','费用侵蚀','Fees','每年 1–2% 的费用看起来很小，几十年下来会吃掉一大块。',
+ [['🐜','小小的费用'],['⏳','几十年'],['🍰','被吃掉一大块']],
+ 'RM10 万放 30 年：年回报 7% 约变 RM76 万；扣掉每年 2% 费用后只剩 5%，约 RM43 万。差了超过 RM30 万。',
+ '只看回报，不看费用。',
+ ['长期来说，每年多 2% 的费用影响？',['几乎没影响','会大幅减少最终金额','会让回报变高'],1,'费用也会「复利」，只是方向相反。']],
+['borrow','safe','💳','不借钱投资','No leverage','借钱投资会把亏损放大，甚至可能亏超过本金。',
+ [['💳','借钱'],['🔍','放大镜'],['💥','亏损也被放大']],
+ '用自己的 RM1 万 + 借来的 RM1 万买股，股价跌 30%（亏 RM6,000），你自己的钱就亏了 60%，还要付利息。',
+ '「这次很有把握，借一点没关系。」',
+ ['自有 RM1 万 + 借 RM1 万，股价跌 30%，你自己的钱亏了？',['30%','60%','15%'],1,'RM2 万 × 30% = RM6,000，对你自己的 RM1 万来说就是 60%。']]
+];
+const byId = Object.fromEntries(C.map(c=>[c[0],c]));
+const inBranch = b => C.filter(c=>c[1]===b);
+
+// storage
+const KEY='invest-guide-v1';
+let S={known:{},plan:{},notes:{}};
+try{const raw=localStorage.getItem(KEY); if(raw) S=Object.assign(S,JSON.parse(raw));}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}};
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+
+// progress
+function updateProgress(){
+  const k=C.filter(c=>S.known[c[0]]).length;
+  $('#knownN').textContent=k; $('#totalN').textContent=C.length;
+  $('#ringFg').setAttribute('stroke-dasharray',(k/C.length*100)+' 100');
+  document.querySelectorAll('.chip').forEach(ch=>ch.classList.toggle('known',!!S.known[ch.dataset.id]));
+  ORDER.forEach(b=>{const el=document.querySelector('.cnt[data-b="'+b+'"]'); if(el){const l=inBranch(b); el.textContent=l.filter(c=>S.known[c[0]]).length+' / '+l.length;}});
+}
+
+// map
+const map=$('#map');
+ORDER.forEach(b=>{
+  const d=document.createElement('div'); d.className='cluster b-'+b; d.dataset.b=b;
+  d.innerHTML='<div class="chead"><div class="ico">'+BR[b].ico+'</div><div><h3>'+BR[b].name+'</h3><div class="why">'+BR[b].why+'</div></div><span class="cnt" data-b="'+b+'"></span></div><div class="chips"></div>';
+  const chips=d.querySelector('.chips');
+  inBranch(b).forEach(c=>{const x=document.createElement('button'); x.className='chip'; x.dataset.id=c[0]; x.innerHTML='<span class="e">'+c[2]+'</span>'+esc(c[3]); x.onclick=()=>openCard(c[0]); chips.appendChild(x);});
+  map.appendChild(d);
+});
+function drawLinks(){
+  const svg=$('#links'), mr=map.getBoundingClientRect(), cr=$('#centerNode').getBoundingClientRect();
+  const cx=cr.left+cr.width/2-mr.left, cy=cr.top+cr.height/2-mr.top, rad=cr.width/2;
+  const one=getComputedStyle(map).gridTemplateColumns.split(' ').length===1;
+  let p='';
+  document.querySelectorAll('.cluster').forEach(cl=>{
+    const h=cl.querySelector('.ico').getBoundingClientRect();
+    let tx=h.left+h.width/2-mr.left, ty=h.top+h.height/2-mr.top;
+    const col=getComputedStyle(cl).getPropertyValue('--c');
+    let d;
+    if(one){ // vertical spine on phones
+      const sx=cx, sy=cy+rad; tx=h.left-mr.left-6;
+      d='M'+sx+','+sy+' C'+sx+','+(ty)+' '+(tx-20)+','+ty+' '+tx+','+ty;
+    }else{
+      const r=cl.getBoundingClientRect(); const left=r.left+r.width/2-mr.left<cx;
+      ty=r.top-mr.top+ (r.top-mr.top>cy+rad?0:r.height/2); tx= left? r.right-mr.left : r.left-mr.left;
+      if(r.top-mr.top>cy+rad){tx=cx; ty=r.top-mr.top; d='M'+cx+','+(cy+rad)+' L'+tx+','+ty;}
+      else{const ang=Math.atan2(ty-cy,tx-cx); const sx=cx+Math.cos(ang)*rad, sy=cy+Math.sin(ang)*rad; const mx=(sx+tx)/2; d='M'+sx+','+sy+' C'+mx+','+sy+' '+mx+','+ty+' '+tx+','+ty;}
+    }
+    p+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 7"/>';
+  });
+  svg.innerHTML=p;
+}
+try{new ResizeObserver(drawLinks).observe(map);}catch(e){window.addEventListener('resize',drawLinks);}
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(drawLinks);
+
+// drawer
+let cur=null;
+function openCard(id){
+  cur=id; const c=byId[id], b=c[1];
+  const dr=$('#drawer'); dr.className='drawer on b-'+b; $('#scrim').classList.add('on');
+  const list=inBranch(b), i=list.indexOf(c);
+  $('#dTag').textContent=BR[b].ico+' '+BR[b].name; $('#dPos').textContent=(i+1)+' / '+list.length;
+  const scene=c[6].map((f,j)=>(j?'<span class="arrow" aria-hidden="true">→</span>':'')+'<div class="frame"><span class="pe">'+f[0]+'</span><span class="pl">'+esc(f[1])+'</span></div>').join('');
+  const q=c[9];
+  $('#dBody').innerHTML='<div class="dtitle"><div class="en">'+esc(c[4])+'</div><h2 id="dTitle">'+esc(c[3])+'</h2></div>'+
+    '<p class="one">'+esc(c[5])+'</p><div class="scene">'+scene+'</div>'+
+    '<div class="blk"><h4>🥐 生活例子</h4><p>'+esc(c[7])+'</p></div>'+
+    '<div class="trap blk"><h4>⚠️ 新手常踩的坑</h4><p>'+esc(c[8])+'</p></div>'+
+    '<div class="quiz"><div class="blk"><h4>✏️ 小测验</h4></div><p class="q">'+esc(q[0])+'</p><div class="opts">'+q[1].map((o,k)=>'<button class="opt" data-k="'+k+'">'+esc(o)+'</button>').join('')+'</div><p class="why" id="qWhy" aria-live="polite"></p></div>';
+  $('#dBody').querySelectorAll('.opt').forEach(btn=>btn.onclick=()=>{
+    const k=+btn.dataset.k, ok=k===q[2];
+    $('#dBody').querySelectorAll('.opt').forEach(o=>{o.classList.remove('right','wrong'); if(+o.dataset.k===q[2]) o.classList.add('right');});
+    if(!ok) btn.classList.add('wrong');
+    $('#qWhy').innerHTML=(ok?'<b style="color:var(--good)">答对了！</b> ':'<b style="color:var(--bad)">再想想。</b> ')+esc(q[3]);
+  });
+  $('#dBody').scrollTop=0; setKnowBtn(); $('#dClose').focus();
+}
+function setKnowBtn(){const k=!!S.known[cur]; const b=$('#dKnow'); b.textContent=k?'✓ 已懂（再点取消）':'我懂了'; b.classList.toggle('done',k);}
+function closeCard(){$('#drawer').classList.remove('on'); $('#scrim').classList.remove('on'); const ch=document.querySelector('.chip[data-id="'+cur+'"]'); if(ch) ch.focus();}
+function step(dir){const c=byId[cur], l=inBranch(c[1]); let i=l.indexOf(c)+dir; if(i<0||i>=l.length){const bi=(ORDER.indexOf(c[1])+dir+ORDER.length)%ORDER.length; const nl=inBranch(ORDER[bi]); openCard((dir>0?nl[0]:nl[nl.length-1])[0]);} else openCard(l[i][0]);}
+$('#dClose').onclick=closeCard; $('#scrim').onclick=closeCard;
+$('#dPrev').onclick=()=>step(-1); $('#dNext').onclick=()=>step(1);
+$('#dKnow').onclick=()=>{S.known[cur]=!S.known[cur]; if(!S.known[cur]) delete S.known[cur]; save(); setKnowBtn(); updateProgress();};
+document.addEventListener('keydown',e=>{if(!$('#drawer').classList.contains('on'))return; if(e.key==='Escape')closeCard(); if(e.key==='ArrowRight')step(1); if(e.key==='ArrowLeft')step(-1);});
+
+// flashcards
+let deck=[], di=0, todoOnly=false;
+function buildDeck(shuffle){deck=C.filter(c=>!todoOnly||!S.known[c[0]]).map(c=>c[0]); if(shuffle){for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}} di=0; renderFC();}
+function renderFC(){
+  const card=$('#card3d'); card.classList.remove('flip');
+  if(!deck.length){card.className='card3d b-tools'; $('#fcFront').innerHTML='<div class="big">🎉</div><h2>全部都懂了！</h2><p class="tap">切换到「全部」再复习一次，或去「调查」页实际练习。</p>'; $('#fcBack').innerHTML=''; $('#fcCount').textContent='0 张'; return;}
+  const c=byId[deck[di]]; card.className='card3d b-'+c[1];
+  $('#fcFront').innerHTML='<div class="big">'+c[2]+'</div><h2>'+esc(c[3])+'</h2><div class="tap">'+esc(c[4])+'</div><p class="tap">先用自己的话说说看，再点一下翻面</p>';
+  $('#fcBack').innerHTML='<h3 style="color:var(--c)">'+esc(c[3])+'</h3><p class="one" style="width:100%">'+esc(c[5])+'</p><div class="scene" style="width:100%">'+c[6].map((f,j)=>(j?'<span class="arrow">→</span>':'')+'<div class="frame"><span class="pe">'+f[0]+'</span><span class="pl">'+esc(f[1])+'</span></div>').join('')+'</div>';
+  $('#fcCount').textContent=(di+1)+' / '+deck.length+(S.known[c[0]]?' · 已懂':'');
+}
+const flip=()=>{if(deck.length)$('#card3d').classList.toggle('flip');};
+$('#card3d').onclick=flip; $('#card3d').onkeydown=e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();flip();}};
+$('#fcPrev').onclick=()=>{if(!deck.length)return; di=(di-1+deck.length)%deck.length; renderFC();};
+$('#fcAgain').onclick=()=>{if(!deck.length)return; const id=deck.splice(di,1)[0]; deck.push(id); if(di>=deck.length)di=0; renderFC();};
+$('#fcKnow').onclick=()=>{if(!deck.length)return; S.known[deck[di]]=true; save(); updateProgress(); if(todoOnly){deck.splice(di,1); if(di>=deck.length)di=0;} else di=(di+1)%deck.length; renderFC();};
+$('#shuffle').onclick=()=>buildDeck(true);
+$('#deckAll').onclick=()=>{todoOnly=false; $('#deckAll').setAttribute('aria-pressed','true'); $('#deckTodo').setAttribute('aria-pressed','false'); buildDeck(false);};
+$('#deckTodo').onclick=()=>{todoOnly=true; $('#deckTodo').setAttribute('aria-pressed','true'); $('#deckAll').setAttribute('aria-pressed','false'); buildDeck(true);};
+
+// research steps
+const STEPS=[
+ ['🗣️','我懂这门生意吗？','用一句话说出它怎么赚钱',
+  ['它卖什么？卖给谁？','顾客为什么买它，而不是买别家？','它靠什么收钱：一次性卖、订阅、收租、收利息？'],
+  '公司年报（Annual Report）里的「Business overview / 管理层讨论」，公司官网的投资者关系（Investor Relations）页。',
+  '阿明面包店：「做面包，卖给附近住宅区的家庭，以及长期供货给 40 家咖啡店。」一句话说得出来 ✅',
+  '说了 5 分钟还说不清它怎么赚钱；或者生意模式一直在变。'],
+ ['🧾','它赚不赚钱？稳不稳？','看损益表：成绩单',
+  ['营收（Revenue）过去 5 年是升还是跌？','净利（Net profit）是不是跟着升？','有没有哪一年突然大赚或大亏？为什么？'],
+  'Bursa Malaysia 网站的公司公告（季度报告、年报）。财经网站的整理版本方便快速看，但重要数字要回原始报告核对。',
+  '营收 5 年从 RM150 万升到 RM200 万，净利从 RM14 万升到 RM20 万，大致稳定成长 ✅',
+  '营收一直涨，利润却一直跌；或靠「卖地、卖资产」的一次性收入撑起利润。'],
+ ['🏠','它的家底稳吗？','看资产负债表：欠多少钱',
+  ['现金有多少？借款（Borrowings）有多少？','欠的钱比赚的钱多很多吗？','短期要还的债，现金够不够付？'],
+  '同一份季度/年度报告里的「Statement of Financial Position」。',
+  '阿明面包店有现金 RM30 万，借款 RM10 万，现金比债多 ✅',
+  '借款越来越多、现金越来越少；或经常发新股向股东要钱。'],
+ ['👛','钱真的进口袋了吗？','看现金流量表：钱包',
+  ['营运现金流（Operating cash flow）是正数吗？','它和净利大致对得上吗？','赚来的现金拿去做什么：扩张、还债、发股息？'],
+  '报告里的「Statement of Cash Flows」。',
+  '净利 RM20 万，营运现金流 RM22 万，对得上 ✅',
+  '连续几年「账面赚钱」但营运现金流是负数：可能是客户欠钱不还或存货卖不出去。'],
+ ['🏰','它有护城河吗？谁在管？','看竞争优势和管理层',
+  ['如果明天有人在隔壁开一样的店，它会不会被抢走生意？','老板和大股东最近在买进还是卖出自家股票？','有没有奇怪的「关联交易」（把生意给老板亲戚的公司）？'],
+  '年报里的风险说明和董事资料、Bursa 的大股东变动公告、新闻；也可以亲自去用它的产品。',
+  '和 40 家咖啡店有长期合约，老板持股 50% 且没在卖 ✅',
+  '大股东一直在卖股；管理层经常换人；一直有负面新闻或被监管机构调查。'],
+ ['🏷️','现在的价格贵不贵？','用 P/E 和股息率比一比',
+  ['P/E 和同行比、和它自己过去 5 年比，是高还是低？','股息率多少？股息是从真实现金流发的吗？','如果利润不增长，这个价格还合理吗？'],
+  '财经网站的估值数据；同行公司也一起查来比较。',
+  '阿明 P/E 10，同行约 15；股息率 5%，由现金流支付 ✅（但要想想为什么它比同行便宜）',
+  'P/E 比同行高很多，却没有更快的成长；股息率高到不寻常（可能股价暴跌或股息不可持续）。'],
+ ['✍️','写下理由，小额开始','把决定写下来',
+  ['我为什么买？（3 个理由）','最大的风险是什么？','什么情况我会卖？（先写好出口）','这笔钱占我总投资多少？'],
+  '下面的「我的调查笔记」。',
+  '「买入理由：稳定成长、低负债、估值低于同行。风险：面粉涨价。出口：连续 2 季亏损。仓位：总投资的 5%。」',
+  '理由只有「听说会涨」；没写出口；一次把大部分钱放进去。']
+];
+$('#steps').innerHTML=STEPS.map((s,i)=>'<details class="step"'+(i===0?' open':'')+'><summary><span class="n">'+(i+1)+'</span><span class="se">'+s[0]+'</span><span><span class="st">'+esc(s[1])+'</span><br><span class="ss">'+esc(s[2])+'</span></span><span class="chev">›</span></summary><div class="sb">'+
+ '<div class="box"><h4>要问的问题</h4><ul>'+s[3].map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'+
+ '<div class="box"><h4>去哪里找</h4><p>'+esc(s[4])+'</p></div>'+
+ '<div class="box eg"><h4>🥐 阿明面包店示范</h4><p>'+esc(s[5])+'</p></div>'+
+ '<div class="box red"><h4>🚩 红旗警告</h4><p>'+esc(s[6])+'</p></div></div></details>').join('');
+
+// notes
+const NF=['name','biz','profit','debt','cash','moat','val','risk','why','exit'];
+const NL={name:'公司',biz:'怎么赚钱',profit:'营收/利润趋势',debt:'欠债',cash:'现金流',moat:'护城河',val:'估值',risk:'最大风险',why:'买入理由',exit:'卖出条件'};
+NF.forEach(f=>{const el=$('#n-'+f); el.value=(S.notes&&S.notes[f])||''; el.addEventListener('input',()=>{S.notes[f]=el.value; save(); $('#notesMsg').textContent='已保存在这个浏览器';});});
+$('#copyNotes').onclick=()=>{
+  const txt=NF.map(f=>NL[f]+'：'+($('#n-'+f).value||'—')).join('\n');
+  const ok=()=>$('#notesMsg').textContent='已复制，可以贴到你的笔记 App';
+  try{navigator.clipboard.writeText(txt).then(ok,()=>fallback(txt));}catch(e){fallback(txt);}
+  function fallback(t){const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); ok();}catch(_){$('#notesMsg').textContent='复制失败，请手动选取';} ta.remove();}
+};
+let clearArm=false;
+$('#clearNotes').onclick=()=>{if(!clearArm){clearArm=true; $('#clearNotes').textContent='再点一次确认清空'; setTimeout(()=>{clearArm=false; $('#clearNotes').textContent='清空';},3000); return;} NF.forEach(f=>$('#n-'+f).value=''); S.notes={}; save(); clearArm=false; $('#clearNotes').textContent='清空'; $('#notesMsg').textContent='已清空';};
+
+// calculator
+const rm=n=>'RM'+Math.round(n).toLocaleString('en-MY');
+function fv(m,yrs,rate){const r=rate/100/12,n=yrs*12; return r? m*((Math.pow(1+r,n)-1)/r) : m*n;}
+function calc(){
+  const m=Math.max(0,+$('#c-month').value||0), y=+$('#c-years').value, rate=+$('#c-rate').value;
+  $('#c-yv').textContent=y;
+  const tot=fv(m,y,rate), pr=m*12*y, g=tot-pr;
+  $('#c-result').innerHTML='<p>你一共放进 <b>'+rm(pr)+'</b></p><p>'+y+' 年后大约有</p><div class="num">'+rm(tot)+'</div><p>其中 <b style="color:var(--accent)">'+rm(g)+'</b> 是钱生的钱'+(tot>0?'（占 '+Math.round(g/tot*100)+'%）':'')+'</p>';
+  let pts=[]; for(let k=5;k<y;k+=5) pts.push(k); pts.push(y); if(y>=3&&pts[0]!==1) pts.unshift(1);
+  $('#c-bars').innerHTML=pts.map(k=>{const t=fv(m,k,rate),p=m*12*k,w=tot?t/tot*100:0; return '<div class="barrow"><span class="yr">第 '+k+' 年</span><div><div class="bar" style="width:'+Math.max(w,1)+'%"><div class="p" style="width:'+(t?p/t*100:0)+'%"></div><div class="g" style="flex:1"></div></div><div class="barlabel">'+rm(t)+'（本金 '+rm(p)+' + 生出 '+rm(t-p)+'）</div></div></div>';}).join('');
+}
+['c-month','c-years','c-rate'].forEach(id=>$('#'+id).addEventListener('input',calc)); calc();
+
+// plan
+const WEEKS=[
+ ['整理好自己的钱','先打地基',[['算出每月生活开销','看银行/电子钱包过去 3 个月的支出'],['定下应急金目标（3–6 个月开销）','还没存够的话，先存这个'],['读完「底层道理」7 张卡','每天 1–2 张'],['登入 KWSP i-Akaun 看你的 EPF 余额','这是你已经在做的投资']]],
+ ['认识投资工具','知道钱可以放哪里',[['读完「投资工具」10 张卡','每天 2 张'],['去 SC 网站找到 Investor Alert List','学会自己查'],['比较 2 种工具的费用','例如一只单位信托 vs 一只 ETF'],['写下你的「便当分格」比例草稿','应急 / 稳健 / 成长']]],
+ ['听懂市场话术','看新闻不再一头雾水',[['每天用「话术闪卡」10 分钟','目标：「市场话术」全部打勾'],['读一篇财经新闻，圈出学过的话术','用自己的话解释给自己听'],['列出 3 家你每天接触的上市公司','你用的银行、电讯、超市……'],['用一句话写出它们各自怎么赚钱','说不出来的，先划掉']]],
+ ['第一次完整调查','开始应用',[['挑 1 家，用「调查 7 步」做一遍','第一次花 1–2 小时很正常'],['填好「我的调查笔记」','特别是「什么情况我会卖」'],['读完「分析方法」和「避坑心法」','对照你的笔记找漏洞'],['决定下一步：继续观察，或小额开始','如果开始，只用闲钱，单一股票 ≤ 5–10%']]]
+];
+$('#weeks').innerHTML=WEEKS.map((w,i)=>'<div class="week"><div class="wh"><span class="wn">第 '+(i+1)+' 周</span><span><span class="wt">'+esc(w[0])+'</span><br><small style="color:var(--muted)">'+esc(w[1])+'</small></span></div>'+
+ w[2].map((t,j)=>{const id='w'+i+'t'+j; return '<label class="task" for="'+id+'"><input type="checkbox" id="'+id+'"><span>'+esc(t[0])+'<small>'+esc(t[1])+'</small></span></label>';}).join('')+'</div>').join('');
+document.querySelectorAll('.task input').forEach(cb=>{cb.checked=!!S.plan[cb.id]; cb.closest('.task').classList.toggle('done',cb.checked);
+  cb.addEventListener('change',()=>{S.plan[cb.id]=cb.checked; save(); cb.closest('.task').classList.toggle('done',cb.checked);});});
+
+// tabs
+const VIEWS=['map','cards','research','calc','plan'];
+function show(v){if(!VIEWS.includes(v))v='map';
+  document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.view===v));
+  VIEWS.forEach(x=>$('#v-'+x).hidden=x!==v);
+  if(v==='map') requestAnimationFrame(drawLinks);
+  if(v==='cards'&&!deck.length&&!todoOnly) buildDeck(false);}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{location.hash=t.dataset.view; show(t.dataset.view); window.scrollTo({top:0});});
+window.addEventListener('hashchange',()=>show(location.hash.slice(1)));
+show(location.hash.slice(1)); buildDeck(false); updateProgress(); drawLinks();
+</script>
