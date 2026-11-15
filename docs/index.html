@@ -498,6 +498,24 @@ html[lang="en"] h1,html[lang="en"] h2,html[lang="en"] h3{letter-spacing:0;font-w
 .toast.on{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){.toast,.cgo,.sdots i{transition:none}.ci.done .cchk{animation:none}}
 
+/* ask AI */
+.aibtn{margin-left:auto;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.aibtn+.mkbtn{margin-left:8px}
+.aisheet{position:absolute;left:0;right:0;bottom:0;z-index:5;background:var(--surface);border-top:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.18);padding:14px 16px 18px;display:flex;flex-direction:column;gap:8px;max-height:80%;overflow:auto}
+.aihead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.aiqs{display:flex;flex-direction:column;gap:6px}
+.aiqs button{text-align:left;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:10px 12px;font:inherit;font-size:14px;cursor:pointer}
+.aisheet textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:10px;font:inherit;background:var(--bg);color:var(--ink)}
+/* bookmarks & relearn */
+.chip .mk{font-size:12px;margin-left:2px}
+.chip:not(.marked) .mk{display:none}
+.chip.marked{box-shadow:inset 0 0 0 2px #E8B640}
+.map.onlymarked .chip:not(.marked){display:none}
+.map.onlymarked .cluster:not(.hasmark){display:none}
+.mkbtn{margin-left:auto;font-size:19px}
+.mkbtn+#dClose{margin-left:8px}
+.mkbtn.on{background:var(--b-money-soft);border-color:#E8B640}
+.btn.relearn{background:var(--warn-bg);color:var(--warn-ink);border-color:var(--b-talk)}
 /* flashcards */
 .fc-wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
 .fc-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -607,6 +625,7 @@ html[lang="en"] h1,html[lang="en"] h2,html[lang="en"] h3{letter-spacing:0;font-w
 <span><span data-i18n="t3">已懂</span> <b id="knownN">0</b> / <b id="totalN">0</b><br/><span class="sync" data-i18n="t4" id="sync">进度保存中…</span></span>
 </div><div id="acctSlot"></div></div>
 <div class="panel" id="meStats"></div>
+<div class="panel" id="meMarks"></div>
 <div class="panel"><h3 data-i18n="t192">🗓️ 我的学习计划</h3><div id="mePlan"></div></div>
 <button class="btn" id="meSettings" data-i18n="t194">⚙️ 打开设置（语言、音乐、提醒、备份）</button>
 </div></section>
@@ -617,7 +636,8 @@ html[lang="en"] h1,html[lang="en"] h2,html[lang="en"] h3{letter-spacing:0;font-w
 <div><h3 data-i18n="t14">我的学习进度</h3><div class="lrows" id="lrows"></div>
 <div class="lkey" data-i18n="t15" style="margin-top:8px"><span>┄ 虚线 = 还没看</span><span>◐ = 看过入门，还有分页没看</span><span>✓ = 已懂</span></div></div>
 <div class="lnext"><button class="btn primary" data-i18n="t16" id="contBtn">继续学习</button><button class="btn due" id="dueBtn" hidden></button>
-<label class="task" for="onlyNew" style="background:transparent;padding:0"><input id="onlyNew" type="checkbox"/><span data-i18n="t17">地图上只显示还没看完的</span></label></div>
+<label class="task" for="onlyNew" style="background:transparent;padding:0"><input id="onlyNew" type="checkbox"/><span data-i18n="t17">地图上只显示还没看完的</span></label>
+<label class="task" for="onlyMarked" style="background:transparent;padding:0"><input id="onlyMarked" type="checkbox"/><span data-i18n="t195">只显示我标记的重点 ⭐</span></label></div>
 </div>
 <div class="map" id="map">
 <svg aria-hidden="true" class="links" id="links"></svg>
@@ -633,6 +653,7 @@ html[lang="en"] h1,html[lang="en"] h2,html[lang="en"] h3{letter-spacing:0;font-w
 <button aria-pressed="true" id="deckAll">全部</button>
 <button aria-pressed="false" id="deckTodo">还没懂的</button>
 <button aria-pressed="false" id="deckKnown">已学会的</button>
+<button aria-pressed="false" id="deckMarked">⭐ 重点</button>
 </div>
 <button class="btn" data-i18n="t22" id="shuffle">洗牌</button>
 <span class="count" id="fcCount"></span>
@@ -846,8 +867,9 @@ html[lang="en"] h1,html[lang="en"] h2,html[lang="en"] h3{letter-spacing:0;font-w
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="modal" id="settings" role="dialog" aria-modal="true" hidden><div id="setBody"></div></div>
 <aside aria-labelledby="dTitle" aria-modal="true" class="drawer" id="drawer" role="dialog">
-<div class="dtop"><span class="tag" id="dTag"></span><span class="tag" id="dPos" style="background:transparent;color:var(--muted)"></span><button aria-label="关闭" class="iconbtn" id="dClose">✕</button></div>
+<div class="dtop"><span class="tag" id="dTag"></span><span class="tag" id="dPos" style="background:transparent;color:var(--muted)"></span><button class="aibtn" id="dAsk" aria-haspopup="dialog">🤖 <span>问AI</span></button><button class="iconbtn mkbtn" id="dMark" aria-pressed="false" aria-label="收藏">☆</button><button aria-label="关闭" class="iconbtn" id="dClose">✕</button></div>
 <div class="dbody" id="dBody"></div>
+<div class="aisheet" id="aiSheet" hidden role="dialog" aria-label="问AI"><div class="aihead"><b id="aiTitle"></b><button class="iconbtn" id="aiClose" aria-label="关闭">✕</button></div><div class="aiqs" id="aiQs"></div><textarea id="aiFree" rows="2"></textarea><button class="btn primary" id="aiGo"></button><p class="note" id="aiNote"></p></div>
 <div class="dfoot"><button class="btn" data-i18n="t180" id="dPrev">← 上一个</button><button class="btn grow" data-i18n="t181" id="dKnow">我懂了</button><button class="btn primary" data-i18n="t182" id="dNext">下一个 →</button></div>
 </aside>
 <script>
@@ -1433,7 +1455,7 @@ t161:'Financial independence calculator',t162:'Monthly living expenses (RM)',t16
 t173:'The “4% rule” comes from 1990s US research: withdrawing 4% of a portfolio each year lasted 30 years in most historical periods. For Malaysia and longer retirements, 3–3.5% is safer. The calculation removes the inflation you choose: all amounts are in today’s ringgit, assuming your monthly investment rises with inflation. Tax is not included.',
 t174:'Watch out for “fake passive income”',t175:'🚩 “Investment plans” that guarantee high monthly returns: real passive income never guarantees fixed high returns',t176:'🚩 Direct-selling or recruitment schemes: that is work, and many are scams',t177:'🚩 “Just take this course and earn while you sleep”: the person earning most is usually the one selling the course',t178:'✅ The real path: high savings rate + diversified long-term investing + reinvested dividends + time',
 t179:'For learning only, not investment advice. Ah Meng Bakery is made up; all numbers illustrate ideas and are not forecasts. Check licences, protection limits and fees against the latest official notices from SC, BNM, PIDM and EPF.',
-t180:'← Previous',t181:'Got it',t182:'Next →',t191:'⑨ Financial news',t192:'🗓️ My study plan',t194:'⚙️ Open settings (language, music, reminders, backup)',t189:'🩺 My real portfolio check-up',t190:'Enter roughly where your money is today (including EPF) to see how far you are from your target portfolio and whether your emergency fund is enough.',t184:'Adjust for 3% inflation (show in today’s buying power)',t185:'Yearly inflation',t186:'0% (ignore)',t187:'2%',t188:'3% (suggested)'
+t180:'← Previous',t181:'Got it',t182:'Next →',t191:'⑨ Financial news',t195:'Only show my bookmarked topics ⭐',t192:'🗓️ My study plan',t194:'⚙️ Open settings (language, music, reminders, backup)',t189:'🩺 My real portfolio check-up',t190:'Enter roughly where your money is today (including EPF) to see how far you are from your target portfolio and whether your emergency fund is enough.',t184:'Adjust for 3% inflation (show in today’s buying power)',t185:'Yearly inflation',t186:'0% (ignore)',t187:'2%',t188:'3% (suggested)'
 };
 
 // English for the 45 concepts: [title, one-liner, picture labels, example, trap, [quiz q, options, why]]
@@ -2234,13 +2256,14 @@ function greet(){const h=new Date().getHours(),g=h<12?tr('早安','Good morning'
 function ring(p,size){const r=15;return '<svg class="pring" viewBox="0 0 36 36" width="'+size+'" height="'+size+'" aria-hidden="true"><circle cx="18" cy="18" r="'+r+'" fill="none" stroke="var(--line)" stroke-width="4"/><circle cx="18" cy="18" r="'+r+'" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" pathLength="100" stroke-dasharray="'+Math.max(0.01,p*100)+' 100" transform="rotate(-90 18 18)"/></svg>';}
 function renderToday(){const el=$('#todayRoot');if(!el)return;syncPlan();const p=S.plan2,items=todayItems(),pd=S.pdone||{},d=today();
  const total=p?p.items.length:0,doneAll=p?p.items.filter(i=>pd[i.id]).length:0,dueN=srsDue().length,q=quoteOfDay(S.qoff||0);
- const left=items.filter(i=>!pd[i.id]).length+(dueN?1:0);
+ const left=items.filter(i=>!pd[i.id]).length+(dueN?1:0)+C.filter(c=>relearning(c[0])).length;
  const dateS=new Date().toLocaleDateString(isEN()?'en-MY':'zh-CN',{weekday:'long',month:'long',day:'numeric'});
  let h='<div class="hero"><div class="hl"><small>'+dateS+'</small><h2>'+greet()+' 👋</h2><p>'+(p?(left?tr('今天还有 <b>'+left+'</b> 项要完成，大约 '+(left*10)+' 分钟。','<b>'+left+'</b> things left today, about '+(left*10)+' minutes.'):tr('今天的清单全部完成了！🎉','Today’s list is all done! 🎉')):tr('先花 1 分钟制定你的学习计划。','Take 1 minute to set up your study plan.'))+'</p><div class="hstats"><span>🔥 '+tr('连续 ','Streak ')+streak()+tr(' 天',' days')+'</span><span>🃏 '+tr('待复习 ','Due ')+dueN+'</span>'+(p&&p.months?'<span>📅 '+tr('预计完成 ','Finish by ')+new Date(p.end*864e5).toLocaleDateString(isEN()?'en-MY':'zh-CN',{month:'short',day:'numeric'})+'</span>':'')+'</div></div>'+
   (p?'<div class="hr">'+ring(total?doneAll/total:0,92)+'<b>'+(total?Math.round(doneAll/total*100):0)+'%</b><small>'+tr('计划进度','Plan progress')+'</small></div>':'')+'</div>';
  if(!p)h+='<button class="cta" id="startPlan"><span>🗓️</span><span><b>'+tr('制定我的学习计划','Create my study plan')+'</b><small>'+tr('选择想用多久学完，系统帮你排好每天的清单','Choose how long you want, and we’ll plan each day for you')+'</small></span><span>→</span></button>';
  else{h+='<div class="section"><div class="shead"><h3>'+tr('📋 今日学习清单','📋 Today’s checklist')+'</h3><small class="note">'+tr('完成后会自动划掉','Items cross off automatically when done')+'</small></div><ul class="checklist">';
   const rows=[];if(dueN)rows.push('<li class="ci"><button class="cgo" data-due="1"><span class="cic">🔁</span><span class="ct"><b>'+tr('复习 '+dueN+' 张到期闪卡','Review '+dueN+' due flashcards')+'</b><small>'+tr('间隔复习 · 约 3 分钟','Spaced review · about 3 min')+'</small></span><span class="cchk"></span></button></li>');
+  const R=S.relearn||{};C.forEach(c=>{const r=R[c[0]];if(!r)return;const on=r.on,doneT=!on&&r.dd===d;if(!on&&!doneT)return;const v=cv(c);rows.push('<li class="ci'+(doneT?' done':'')+'"><button class="cgo" data-rl="'+c[0]+'"><span class="cic">'+c[2]+'</span><span class="ct"><b>'+esc(v.t)+'</b><small><em>'+tr('重新学习','Relearn')+'</em> · '+BR[c[1]].ico+' '+brN(c[1])+'</small></span><span class="cchk">'+(doneT?'✓':'')+'</span></button></li>');});
   items.slice().sort((a,b)=>(pd[a.id]?1:0)-(pd[b.id]?1:0)).forEach(it=>{const v=itemView(it),done=!!pd[it.id],late=!done&&it.day<d;rows.push('<li class="ci'+(done?' done':'')+'"><button class="cgo" data-it="'+it.id+'"><span class="cic">'+v[0]+'</span><span class="ct"><b>'+esc(v[1])+'</b><small>'+(late?'<em>'+tr('补课','Catch-up')+'</em> · ':'')+esc(v[2])+'</small></span><span class="cchk">'+(done?'✓':'')+'</span></button>'+(done?'':'<button class="cmark" data-mk="'+it.id+'" aria-label="'+tr('标记完成','Mark done')+'">✓</button>')+'</li>');});
   if(!rows.length)rows.push('<li class="cempty">'+tr('今天没有新任务。可以复习闪卡、看看新闻，或提前学下一课。','No new tasks today. Review flashcards, read the news, or get ahead on the next lesson.')+'</li>');
   h+=rows.join('')+'</ul></div>';}
@@ -2250,6 +2273,7 @@ function renderToday(){const el=$('#todayRoot');if(!el)return;syncPlan();const p
  const sp=$('#startPlan');if(sp)sp.onclick=()=>openOnb();
  el.querySelectorAll('[data-it]').forEach(b=>b.onclick=()=>{const it=S.plan2.items.find(x=>x.id===b.dataset.it);if(it)goItem(it);});
  el.querySelectorAll('[data-mk]').forEach(b=>b.onclick=e=>{e.stopPropagation();S.pdone[b.dataset.mk]=today();markActive();save();celebrate();renderToday();renderNav(curView);});
+ el.querySelectorAll('[data-rl]').forEach(b=>b.onclick=()=>{lastTab='intro';openCard(b.dataset.rl);});
  el.querySelectorAll('[data-due]').forEach(b=>b.onclick=()=>{location.hash='cards';show('cards');todoMode='due';buildDeck(false);});
  el.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.go;show(b.dataset.go);window.scrollTo({top:0});});
  $('#qnext').onclick=()=>{S.qoff=(S.qoff||0)+1;renderToday();};
@@ -2260,7 +2284,11 @@ function renderMe(){if(!$('#meStats'))return;const D=S.days||{},d=today(),p=S.pl
  let cal='';for(let i=34;i>=0;i--){const x=d-i;cal+='<i class="'+(D[x]?'on':'')+(x===d?' t':'')+'" title="'+new Date(x*864e5).toISOString().slice(0,10)+'"></i>';}
  $('#meStats').innerHTML='<div class="kpis">'+kpi(tr('连续学习','Streak'),streak()+tr(' 天',' days'))+kpi(tr('学习天数','Days learned'),Object.keys(D).length)+kpi(tr('已懂课题','Topics understood'),C.filter(c=>S.known[c[0]]).length+' / '+C.length)+kpi(tr('模拟游戏','Games played'),(S.simHist||[]).length)+'</div><h3 style="margin-top:12px">'+tr('最近 5 周','Last 5 weeks')+'</h3><div class="heat">'+cal+'</div><h3 style="margin-top:12px">'+tr('各部分进度','Progress by section')+'</h3><div class="lrows">'+(($('#lrows')||{}).innerHTML||'')+'</div>';
  $('#mePlan').innerHTML=p?'<p>'+tr('目标：','Goal: ')+L2({basics:['学会投资基础','Learn the basics'],invest:['开始自己投资','Start investing myself'],retire:['规划退休与财务自由','Plan retirement & FI']}[p.goal]||['',''])+' · '+(p.months?tr(p.months+' 个月',p.months+' months'):tr('自己的节奏','My own pace'))+' · '+tr('每周 '+p.dpw+' 天',p.dpw+' days a week')+'</p><p>'+tr('已完成 ','Done ')+p.items.filter(i=>(S.pdone||{})[i.id]).length+' / '+p.items.length+'</p><button class="btn" id="rePlan">'+tr('重新制定计划','Re-plan')+'</button>':'<button class="btn primary" id="rePlan">'+tr('制定学习计划','Create a study plan')+'</button>';
- $('#rePlan').onclick=()=>openOnb();}
+ $('#rePlan').onclick=()=>openOnb();
+ const mk=markedIds();$('#meMarks').innerHTML='<h3>'+tr('⭐ 我的重点单元','⭐ My bookmarked topics')+'</h3>'+(mk.length?'<div class="chips">'+mk.map(id=>{const c=byId[id];return '<button class="chip b-'+c[1]+' marked" data-id="'+id+'" data-mk="'+id+'"><span class="e">'+c[2]+'</span>'+esc(cv(c).t)+(S.known[id]?' ✓':'')+'</button>';}).join('')+'</div><div class="seg wrapseg" style="margin-top:10px"><button id="mkCards">🃏 '+tr('用闪卡复习重点','Review bookmarks as flashcards')+'</button><button id="mkMap">🗺️ '+tr('在地图上查看','Show on the map')+'</button></div>':'<p class="note">'+tr('打开任何课题，按右上角的 ☆ 就能加入重点，方便以后反复复习。','Open any topic and tap ☆ at the top right to bookmark it for repeated review.')+'</p>');
+ $('#meMarks').querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>{lastTab='intro';openCard(b.dataset.mk);});
+ const mc=$('#mkCards');if(mc)mc.onclick=()=>{location.hash='cards';show('cards');todoMode='marked';buildDeck(false);};
+ const mm=$('#mkMap');if(mm)mm.onclick=()=>{location.hash='map';show('map');const cb=$('#onlyMarked');cb.checked=true;cb.onchange({target:cb});};}
 
 // ---------- onboarding ----------
 let ob={step:0,goal:'basics',months:3,dpw:7};
@@ -2365,11 +2393,35 @@ function renderSettings(){const k=C.filter(c=>S.known[c[0]]).length,sn=C.filter(
  $('#stPush').onclick=async()=>{await setPush(!c.remind.push,$('#remMsg'));const b=$('#stPush');if(b){b.setAttribute('aria-pressed',!!c.remind.push);b.textContent='🔔 '+(c.remind.push?tr('App 推送：开','App push: on'):tr('App 推送：关','App push: off'));}};
  $('#bkOut').onclick=()=>exportData($('#bkMsg'));let ia=false;$('#bkIn').onclick=e=>{if(!ia){ia=true;e.target.textContent=tr('再点一次确认导入（会覆盖目前进度）','Tap again to import (replaces current progress)');return;}importData($('#bkMsg'));};
  const arm=(id,fn)=>{let a=false;$('#'+id).onclick=e=>{if(!a){a=true;e.target.textContent=tr('再点一次确认（无法恢复）','Tap again to confirm (can’t be undone)');setTimeout(()=>{a=false;if(e.target.isConnected)renderSettings();},4000);return;}fn();}};
- arm('rstLearn',()=>{S.resetAt=Date.now();S.srs={};S.known={};S.viewed={};S.plan={};S.notes={};S.adv={};S.road={};S.plan2=null;S.pdone={};S.days={};save();NF.forEach(f=>$('#n-'+f).value='');renderAllState();buildDeck(false);renderSettings();$('#setMsg').textContent=tr('学习进度已清零。','Learning progress reset.');});
+ arm('rstLearn',()=>{S.resetAt=Date.now();S.srs={};S.relearn={};S.known={};S.viewed={};S.plan={};S.notes={};S.adv={};S.road={};S.plan2=null;S.pdone={};S.days={};save();NF.forEach(f=>$('#n-'+f).value='');renderAllState();buildDeck(false);renderSettings();$('#setMsg').textContent=tr('学习进度已清零。','Learning progress reset.');});
  arm('rstSim',()=>{S.sim=null;S.simHist=[];S.simResetAt=Date.now();save();if(!$('#v-sim').hidden)renderSim();renderSettings();$('#setMsg').textContent=tr('模拟器已重置。','Simulator reset.');});}
 function openSettings(){$('#settings').hidden=false;$('#setScrim').classList.add('on');renderSettings();$('#setClose').focus();}
 function closeSettings(){$('#settings').hidden=true;$('#setScrim').classList.remove('on');const g=$('#gearBtn');if(g)g.focus();}
 
+// ===================== Bookmarks & re-learning =====================
+const isMarked=id=>!!(S.marks&&S.marks[id]&&S.marks[id].on);
+const markedIds=()=>C.filter(c=>isMarked(c[0])).map(c=>c[0]);
+function toggleMark(id){S.marks=S.marks||{};const on=!isMarked(id);S.marks[id]={on,t:Date.now()};save();updateProgress();if(on)celebrate(tr('已加入重点 ⭐','Bookmarked ⭐'));}
+const relearning=id=>!!(S.relearn&&S.relearn[id]&&S.relearn[id].on);
+function relearn(id){S.relearn=S.relearn||{};delete S.known[id];delete S.viewed[id];if(S.srs)delete S.srs[id];S.relearn[id]={on:true,t:Date.now(),d:today()};save();updateProgress();lastTab='intro';openCard(id);
+  const t=$('#toast');if(t){t.textContent='🔁 '+tr('已重置，加进今日清单','Reset · added to Today');t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),2600);}}
+function syncRelearn(){const R=S.relearn||{};let ch=false;for(const id in R){if(R[id].on&&S.known[id]){R[id]={on:false,t:Date.now(),d:R[id].d,dd:today()};ch=true;}}if(ch)save();}
+// ===================== Ask AI about a lesson =====================
+const AIQ=[['🍼','用更简单的话再解释一次，像讲给中学生听','Explain it again in simpler words, as if to a secondary-school student'],
+ ['🔬','讲得更深入：背后的原理、公式和常见误区','Go deeper: the theory, formulas and common misconceptions'],
+ ['🇲🇾','用马来西亚的真实例子（Bursa、EPF、ASB 等）说明','Explain with real Malaysian examples (Bursa, EPF, ASB, etc.)'],
+ ['📝','出 5 道题考我，等我回答后再告诉我答案','Quiz me with 5 questions and wait for my answers before revealing them'],
+ ['🔗','它和其他投资概念有什么关系？','How does it connect to other investing concepts?']];
+function aiPrompt(q){const c=byId[cur],v=cv(c);const name=v.t+(isEN()?'':(C_EN[c[0]]?' / '+C_EN[c[0]][0]:''));
+  return isEN()?'I am a beginner learning investing (I live in Malaysia). Topic: "'+name+'" (one-line summary: '+v.one+'). '+q+' Please use plain language, short paragraphs and examples. This is for learning only, not investment advice.'
+   :'我是投资新手（住在马来西亚），正在学习「'+name+'」这个概念（课本一句话：'+v.one+'）。'+q+'。请用简单的中文、短段落和例子来讲解。这只是学习用途，不是投资建议。';}
+function askAI(q){const t=aiPrompt(q),url='https://claude.ai/new?q='+encodeURIComponent(t);try{navigator.clipboard&&navigator.clipboard.writeText(t).catch(()=>{});}catch(e){}
+  const w=window.open(url,'_blank','noopener');const n=$('#aiNote');n.textContent=w?tr('已在 Claude 打开（问题也已复制，若没自动填入可直接粘贴）。','Opened in Claude (the question is also copied; paste it if it isn’t filled in).'):tr('浏览器挡住了新窗口。问题已复制，请打开 claude.ai 粘贴。','Your browser blocked the new tab. The question is copied; open claude.ai and paste it.');}
+function openAsk(){const c=byId[cur];if(!c)return;$('#aiTitle').textContent='🤖 '+tr('问 AI：','Ask AI: ')+cv(c).t;
+  $('#aiQs').innerHTML=AIQ.map((q,i)=>'<button data-q="'+i+'">'+q[0]+' '+esc(tr(q[1],q[2]))+'</button>').join('');
+  $('#aiQs').querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{const q=AIQ[+b.dataset.q];askAI(tr(q[1],q[2]));});
+  const f=$('#aiFree');f.value='';f.placeholder=tr('或者输入你自己的问题…','Or type your own question…');$('#aiGo').textContent=tr('发送我的问题 →','Ask my question →');$('#aiNote').textContent=tr('会在 Claude 新窗口打开，用你自己的 Claude 账号回答。','Opens in a new Claude tab and uses your own Claude account.');
+  $('#aiSheet').hidden=false;}
 // storage
 const KEY='invest-guide-v1';
 let S={known:{},viewed:{},plan:{},notes:{},sim:null,adv:{},road:{},simHist:[],srs:{},xray:null,lang:null,resetAt:0,updatedAt:0};
@@ -2390,6 +2442,7 @@ function mergeRemote(r){if(!r)return;
   if(r.plan2&&(!S.plan2||(r.plan2.created||0)>(S.plan2.created||0))){S.plan2=r.plan2;S.pdone=r.pdone||{};}else if(r.plan2&&S.plan2&&r.plan2.created===S.plan2.created)S.pdone=Object.assign({},r.pdone||{},S.pdone||{});
   if((r.updatedAt||0)>(S.updatedAt||0)&&r.cfg)S.cfg=r.cfg;
   if(r.pqDone)S.pqDone=true;
+  ['marks','relearn'].forEach(k=>{if(!r[k])return;S[k]=S[k]||{};for(const id in r[k]){const a=S[k][id],b=r[k][id];if(!a||(b.t||0)>(a.t||0))S[k][id]=b;}});
   ['known','plan','adv','road'].forEach(k=>{S[k]=Object.assign({},r[k]||{},S[k]||{});});
   const v=r.viewed||{};for(const id in v){S.viewed[id]=Object.assign({},v[id],S.viewed[id]||{});}
   if((r.updatedAt||0)>(S.updatedAt||0)&&r.notes)S.notes=r.notes;
@@ -2415,7 +2468,9 @@ function updateProgress(){
   const k=C.filter(c=>S.known[c[0]]).length;
   $('#knownN').textContent=k; $('#totalN').textContent=C.length;
   $('#ringFg').setAttribute('stroke-dasharray',(k/C.length*100)+' 100');
-  document.querySelectorAll('.chip').forEach(ch=>{const id=ch.dataset.id,v=S.viewed[id]||{},n=Object.keys(v).length,kk=!!S.known[id];ch.classList.toggle('known',kk);ch.classList.toggle('unseen',!kk&&n===0);ch.classList.toggle('partial',!kk&&n>0&&n<4);});
+  document.querySelectorAll('.chip').forEach(ch=>{const id=ch.dataset.id,v=S.viewed[id]||{},n=Object.keys(v).length,kk=!!S.known[id];ch.classList.toggle('known',kk);ch.classList.toggle('unseen',!kk&&n===0);ch.classList.toggle('partial',!kk&&n>0&&n<4);ch.classList.toggle('marked',isMarked(id));});
+  document.querySelectorAll('.cluster').forEach(cl=>cl.classList.toggle('hasmark',!!cl.querySelector('.chip.marked')));
+  syncRelearn();const om=document.querySelector('label[for="onlyMarked"] span');if(om)om.textContent=tr('只显示我标记的重点 ⭐','Only show my bookmarked topics ⭐')+' ('+markedIds().length+')';if(!$('#v-me').hidden&&typeof renderMe==='function')renderMe();
   renderLearn();
   ORDER.forEach(b=>{const el=document.querySelector('.cnt[data-b="'+b+'"]'); if(el){const l=inBranch(b); el.textContent=l.filter(c=>S.known[c[0]]).length+' / '+l.length;}});
   if(typeof syncPlan==='function'&&S.plan2){syncPlan();if(!$('#v-today').hidden&&!$('#drawer').classList.contains('on'))renderToday();}
@@ -2446,7 +2501,7 @@ function rebuildMap(){map.querySelectorAll('.cluster').forEach(x=>x.remove());
   const d=document.createElement('div'); d.className='cluster b-'+b; d.dataset.b=b;
   d.innerHTML='<div class="chead"><div class="ico">'+BR[b].ico+'</div><div><h3>'+brN(b)+'</h3><div class="why">'+brW(b)+'</div></div><span class="cnt" data-b="'+b+'"></span></div><div class="chips"></div>';
   const chips=d.querySelector('.chips');
-  inBranch(b).forEach(c=>{const x=document.createElement('button'); x.className='chip'; x.dataset.id=c[0]; x.innerHTML='<span class="e">'+c[2]+'</span>'+esc(cv(c).t); x.onclick=()=>openCard(c[0]); chips.appendChild(x);});
+  inBranch(b).forEach(c=>{const x=document.createElement('button'); x.className='chip'; x.dataset.id=c[0]; x.innerHTML='<span class="e">'+c[2]+'</span>'+esc(cv(c).t)+'<span class="mk" aria-hidden="true">⭐</span>'; x.onclick=()=>openCard(c[0]); chips.appendChild(x);});
   map.appendChild(d);
  });}
 rebuildMap();
@@ -2456,6 +2511,7 @@ function drawLinks(){
   const one=getComputedStyle(map).gridTemplateColumns.split(' ').length===1;
   let p='';
   document.querySelectorAll('.cluster').forEach(cl=>{
+    if(!cl.offsetParent)return;
     const h=cl.querySelector('.ico').getBoundingClientRect();
     let tx=h.left+h.width/2-mr.left, ty=h.top+h.height/2-mr.top;
     const col=getComputedStyle(cl).getPropertyValue('--c');
@@ -2518,18 +2574,21 @@ function openCard(id){
   });
   $('#dBody').scrollTop=0; setKnowBtn(); $('#dClose').focus();
 }
-function setKnowBtn(){const k=!!S.known[cur]; const b=$('#dKnow'); b.textContent=k?tr('✓ 已懂（再点取消）','✓ Understood (tap to undo)'):tr('我懂了','Got it'); b.classList.toggle('done',k);}
+function setKnowBtn(){const sh=$('#aiSheet');if(sh)sh.hidden=true;const ak=$('#dAsk span');if(ak)ak.textContent=tr('问AI','Ask AI');const k=!!S.known[cur]; const b=$('#dKnow'); b.textContent=k?tr('🔁 还不熟悉，重新学','🔁 Not sure, relearn'):(relearning(cur)?tr('🔁 重学中 · 学完按这里','🔁 Relearning · tap when done'):tr('我懂了','Got it')); b.classList.toggle('relearn',k); b.classList.remove('done');
+  const m=$('#dMark');if(m){const on=isMarked(cur);m.textContent=on?'⭐':'☆';m.setAttribute('aria-pressed',on);m.setAttribute('aria-label',on?tr('取消重点','Remove bookmark'):tr('标记为重点','Bookmark this topic'));m.classList.toggle('on',on);}}
 function closeCard(){$('#drawer').classList.remove('on'); $('#scrim').classList.remove('on'); const ch=document.querySelector('.chip[data-id="'+cur+'"]'); if(ch) ch.focus();}
 function step(dir){lastTab='intro';const c=byId[cur], l=inBranch(c[1]); let i=l.indexOf(c)+dir; if(i<0||i>=l.length){const bi=(ORDER.indexOf(c[1])+dir+ORDER.length)%ORDER.length; const nl=inBranch(ORDER[bi]); openCard((dir>0?nl[0]:nl[nl.length-1])[0]);} else openCard(l[i][0]);}
 $('#dClose').onclick=closeCard; $('#scrim').onclick=closeCard;
 $('#dPrev').onclick=()=>step(-1); $('#dNext').onclick=()=>step(1);
-$('#dKnow').onclick=()=>{S.known[cur]=!S.known[cur]; if(!S.known[cur]){delete S.known[cur]; if(S.srs)delete S.srs[cur];} else srsLearn(cur); save(); setKnowBtn(); updateProgress();};
+let rlArm=false;
+$('#dKnow').onclick=e=>{if(S.known[cur]){if(!rlArm){rlArm=true;e.currentTarget.textContent=tr('再点一次确认重学','Tap again to confirm');setTimeout(()=>{rlArm=false;if(cur)setKnowBtn();},3500);return;}rlArm=false;relearn(cur);return;}
+  S.known[cur]=true; srsLearn(cur); save(); setKnowBtn(); updateProgress(); celebrate(tr('学完一课！','Lesson complete!'));};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#settings').hidden){closeSettings();return;}if(!$('#drawer').classList.contains('on'))return; if(e.key==='Escape')closeCard(); if(e.key==='ArrowRight')step(1); if(e.key==='ArrowLeft')step(-1);});
 
 // flashcards: modes all / todo / known
 let deck=[], di=0, todoMode='all';
-function buildDeck(shuffle){deck=todoMode==='due'?srsDue():C.filter(c=>todoMode==='all'||(todoMode==='todo'?!S.known[c[0]]:!!S.known[c[0]])).map(c=>c[0]); if(shuffle){for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}} di=0; renderFC();}
-function setDeckBtns(){[['deckDue','due',tr('今天复习','Due today')],['deckAll','all',tr('全部','All')],['deckTodo','todo',tr('还没懂的','Not yet learned')],['deckKnown','known',tr('已学会的','Learned')]].forEach(x=>{const b=$('#'+x[0]);b.setAttribute('aria-pressed',todoMode===x[1]);const n=x[1]==='due'?srsDue().length:x[1]==='all'?C.length:C.filter(c=>x[1]==='todo'?!S.known[c[0]]:!!S.known[c[0]]).length;b.textContent=x[2]+' ('+n+')';});
+function buildDeck(shuffle){deck=todoMode==='due'?srsDue():todoMode==='marked'?markedIds():C.filter(c=>todoMode==='all'||(todoMode==='todo'?!S.known[c[0]]:!!S.known[c[0]])).map(c=>c[0]); if(shuffle){for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}} di=0; renderFC();}
+function setDeckBtns(){[['deckDue','due',tr('今天复习','Due today')],['deckAll','all',tr('全部','All')],['deckTodo','todo',tr('还没懂的','Not yet learned')],['deckKnown','known',tr('已学会的','Learned')],['deckMarked','marked',tr('⭐ 重点','⭐ Bookmarked')]].forEach(x=>{const b=$('#'+x[0]);b.setAttribute('aria-pressed',todoMode===x[1]);const n=x[1]==='marked'?markedIds().length:x[1]==='due'?srsDue().length:x[1]==='all'?C.length:C.filter(c=>x[1]==='todo'?!S.known[c[0]]:!!S.known[c[0]]).length;b.textContent=x[2]+' ('+n+')';});
  $('#fcAgain').textContent=todoMode==='due'?tr('忘了，明天再复习','Forgot, review tomorrow'):todoMode==='known'?tr('其实还不熟，放回「还没懂」','Not sure after all, move back to “not yet learned”'):tr('还不熟，等下再看','Not sure yet, show again later');
  $('#fcKnow').textContent=todoMode==='due'?tr('记得 ✓','Remembered ✓'):todoMode==='known'?tr('还记得，下一张','Still know it, next'):tr('我懂了','Got it');}
 function renderFC(){
@@ -2556,6 +2615,7 @@ $('#deckAll').onclick=()=>{todoMode='all'; buildDeck(false);};
 $('#deckDue').onclick=()=>{todoMode='due'; buildDeck(false);};
 $('#deckTodo').onclick=()=>{todoMode='todo'; buildDeck(true);};
 $('#deckKnown').onclick=()=>{todoMode='known'; buildDeck(true);};
+$('#deckMarked').onclick=()=>{todoMode='marked'; buildDeck(false);};
 
 // research steps
 const STEPS=[
@@ -2684,6 +2744,9 @@ function show(v){if(!VIEWS.includes(v))v='today';lastView[secOf(v)]=v;curView=v;
 window.addEventListener('hashchange',()=>show(location.hash.slice(1)));
 ['fi-ex','fi-cur','fi-mo','fi-r','fi-wr','fi-inf'].forEach(i=>$('#'+i).addEventListener('input',fiCalc));
 $('#onlyNew').onchange=e=>{map.classList.toggle('onlynew',e.target.checked);drawLinks();};
+$('#onlyMarked').onchange=e=>{map.classList.toggle('onlymarked',e.target.checked);requestAnimationFrame(drawLinks);};
+$('#dAsk').onclick=openAsk;$('#aiClose').onclick=()=>{$('#aiSheet').hidden=true;};$('#aiGo').onclick=()=>{const v=$('#aiFree').value.trim();if(v)askAI(v);else $('#aiFree').focus();};
+$('#dMark').onclick=()=>{if(cur){toggleMark(cur);setKnowBtn();}};
 C.forEach(c=>{if(S.known[c[0]])srsLearn(c[0]);});
 cfg(); applyLook(); setSync('local'); applyLang(); syncPlan(); planReady=true; show(location.hash.slice(1)||'today'); buildDeck(false); drawLinks(); connectStore();
 if(!cfg().onboarded&&!S.plan2) openOnb();
