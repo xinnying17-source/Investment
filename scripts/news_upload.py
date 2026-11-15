@@ -1,4 +1,7 @@
-"""Upload curated news + markets + storylines to Supabase and delete items older than keep_days.
+"""Two modes.
+  --raw : (GitHub Actions, no AI) upload headline-only items + market closes, delete items older than keep_days.
+  default: (Claude) add bilingual summaries to existing items (PATCH) and upsert storylines.
+Upload curated news + markets + storylines to Supabase and delete items older than keep_days.
 
 Input: news/_work/curated.json  {"items":[...], "stories":[...]}  and news/_work/markets.json
 Item fields: id, day (YYYY-MM-DD), country, industry, published_at, source, url, title_zh, title_en,
@@ -7,7 +10,7 @@ Story fields: key, country, industry, title_zh, title_en, story_zh, story_en  (s
 Writes require the x-ingest-key header; in the cloud session the network proxy injects it.
 Locally you can set INGEST_KEY in the environment instead.
 """
-import json, os, sys, datetime, urllib.request
+import json, os, sys, datetime, urllib.request, email.utils
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CFG = json.load(open(os.path.join(ROOT, 'news', 'buckets.json'), encoding='utf-8'))
 WORK = os.path.join(ROOT, 'news', '_work')
@@ -27,26 +30,57 @@ def call(method, path, body=None, prefer=None):
     with urllib.request.urlopen(req, timeout=30) as r:
         return r.status, r.read().decode()
 
-def main():
-    cur = json.load(open(os.path.join(WORK, 'curated.json'), encoding='utf-8'))
+def raw_items():
+    """Headlines only (no AI): top items per bucket from candidates.json, English title + link."""
+    cand = json.load(open(os.path.join(WORK, 'candidates.json'), encoding='utf-8'))
+    n = CFG['max_items_per_bucket']; per = {}; out = []
+    day = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).date().isoformat()  # Malaysia date
+    for it in cand['items']:
+        k = (it['country'], it['industry'])
+        if per.get(k, 0) >= n:
+            continue
+        per[k] = per.get(k, 0) + 1
+        try:
+            pub = email.utils.parsedate_to_datetime(it['published']).isoformat() if it.get('published') else None
+        except Exception:
+            pub = None
+        title = it['title'].rsplit(' - ', 1)[0] if it.get('source') and it['title'].endswith(' - ' + it['source']) else it['title']
+        out.append({'id': it['id'], 'day': day, 'country': it['country'], 'industry': it['industry'], 'published_at': pub,
+                    'source': it.get('source', ''), 'url': it['url'], 'title_en': title})
+    return out
+
+def main_raw():
+    items = raw_items()
+    # ignore-duplicates: never overwrite an item that already has AI summaries
+    print('raw items', len(items), call('POST', 'news_items?on_conflict=id', items, 'resolution=ignore-duplicates,return=minimal')[0])
     mk = json.load(open(os.path.join(WORK, 'markets.json'), encoding='utf-8')) if os.path.exists(os.path.join(WORK, 'markets.json')) else {}
-    items = cur.get('items', [])
-    for it in items:
-        for f in ('title_zh', 'title_en', 'summary_zh', 'summary_en', 'url', 'country', 'industry', 'day'):
-            if not it.get(f):
-                sys.exit(f'item {it.get("id")} missing {f}')
-    if items:
-        print('items', call('POST', 'news_items?on_conflict=id', items, 'resolution=merge-duplicates,return=minimal')[0])
-    if cur.get('stories'):
-        st = [{**s, 'updated_at': datetime.datetime.utcnow().isoformat() + 'Z'} for s in cur['stories']]
-        print('stories', call('POST', 'news_story?on_conflict=key', st, 'resolution=merge-duplicates,return=minimal')[0])
     if mk:
         rows = [{'sym': k, 'name_zh': v['zh'], 'name_en': v['en'], 'x': v['x'], 'v': v['v'], 'src': v.get('src', ''), 'updated_at': datetime.datetime.utcnow().isoformat() + 'Z'} for k, v in mk.items()]
         print('markets', call('POST', 'market_snap?on_conflict=sym', rows, 'resolution=merge-duplicates,return=minimal')[0])
     cutoff = (datetime.date.today() - datetime.timedelta(days=CFG['keep_days'])).isoformat()
     print('cleanup', call('DELETE', 'news_items?day=lt.' + cutoff, prefer='return=minimal')[0])
-    meta = {'k': 'last_run', 'v': {'at': datetime.datetime.utcnow().isoformat() + 'Z', 'items': len(items), 'status': cur.get('status', 'ok')}}
+    meta = {'k': 'last_run', 'v': {'at': datetime.datetime.utcnow().isoformat() + 'Z', 'items': len(items), 'status': 'ok'}}
     print('meta', call('POST', 'news_meta?on_conflict=k', [meta], 'resolution=merge-duplicates,return=minimal')[0])
+
+def main():
+    if '--raw' in sys.argv:
+        return main_raw()
+    cur = json.load(open(os.path.join(WORK, 'curated.json'), encoding='utf-8'))
+    mk = json.load(open(os.path.join(WORK, 'markets.json'), encoding='utf-8')) if os.path.exists(os.path.join(WORK, 'markets.json')) else {}
+    items = cur.get('items', [])
+    for it in items:
+        for f in ('id', 'title_zh', 'title_en', 'summary_zh', 'summary_en'):
+            if not it.get(f):
+                sys.exit(f'item {it.get("id")} missing {f}')
+    if items:
+        for it in items:  # enrich existing rows only (PATCH keeps day/url/source from the raw upload)
+            fields = {k: v for k, v in it.items() if k in ('title_zh', 'title_en', 'summary_zh', 'summary_en', 'impact_zh', 'impact_en', 'tags', 'chart_sym', 'story_key')}
+            call('PATCH', 'news_items?id=eq.' + it['id'], fields, 'return=minimal')
+        print('enriched', len(items))
+    if cur.get('stories'):
+        st = [{**s, 'updated_at': datetime.datetime.utcnow().isoformat() + 'Z'} for s in cur['stories']]
+        print('stories', call('POST', 'news_story?on_conflict=key', st, 'resolution=merge-duplicates,return=minimal')[0])
+    print('done')
 
 if __name__ == '__main__':
     main()
