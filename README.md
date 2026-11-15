@@ -51,3 +51,15 @@
 
 ## 自动测试
 `node tests/smoke.js`：打开所有课题的每个分页（中英文）、每个页面、三种模拟器模式，并检查手机宽度有没有横向溢出。
+
+## 每日学习提醒
+- **手机日历（推荐，最可靠）**：设置 → 每日提醒 → 「加到手机日历」，会下载一个提醒文件，打开它就加入日历。
+- **App 推送（需要一次性设置）**：
+  1. Supabase → Database → Extensions：打开 `pg_cron` 和 `pg_net`。
+  2. SQL Editor 执行 `supabase/push.sql`。
+  3. Edge Functions → Deploy a new function → 名称填 `push-reminder` → 贴上 `supabase/functions/push-reminder/index.ts` 的内容 → Deploy。
+  4. 在这个函数的设置里，关掉 **Enforce JWT verification**。
+  5. 用户在 App 里登录 → 设置 → 「App 推送」打开。iPhone 要先把 App 加到主画面（iOS 16.4 以上）并从主画面打开。
+
+## 背景音乐
+音乐在浏览器里用 Web Audio 即时生成（雨声钢琴、柔和氛围、棕噪音、Lo-fi），不需要音乐文件，也没有版权问题。浏览器规定要先点一下页面才能出声；切到别的 App 会自动暂停。
