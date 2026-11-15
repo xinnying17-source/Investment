@@ -131,7 +131,7 @@ def write(items, feedback=None):
     prompt = f"""You are writing headline summaries for a bilingual (Chinese/English) investing-education app for beginners in Malaysia.
 {RULES}{fb}
 For EVERY item below return:
-{{"items":[{{"id":"...","title_zh":"plain Chinese headline","title_en":"plain English headline","summary_zh":"1-2 short sentences restating the headline plainly","summary_en":"same in English","impact_zh":"这类消息通常…","impact_en":"News like this usually…","tags":[{{"k":"up|down|watch","zh":"2-6 Chinese characters naming who is affected","en":"short"}}],"chart_sym":"klci|usdmyr|spx|aapl|gold|brent or omit"}}],
+{{"items":[{{"id":"...","title_zh":"plain Chinese headline","title_en":"repeat the original headline exactly","summary_zh":"1-2 short sentences restating the headline plainly","summary_en":"same in English","impact_zh":"这类消息通常…","impact_en":"News like this usually…","tags":[{{"k":"up|down|watch","zh":"2-6 Chinese characters naming who is affected","en":"short"}}],"chart_sym":"klci|usdmyr|spx|aapl|gold|brent or omit"}}],
 "irrelevant":["ids of headlines clearly NOT about business, markets, companies or the economy (sports, crime, festivals, accidents, celebrity, adverts)"]}}
 Items:
 """ + '\n'.join(json.dumps(s, ensure_ascii=False) for s in items)
@@ -224,6 +224,9 @@ def summaries(today):
     if os.path.exists(cpath):
         pool = json.load(open(cpath, encoding='utf-8'))['items']
     rel = {c['id']: c.get('related') or [] for c in pool}
+    def orig(c):  # Google News appends " - Source" to titles
+        t = c['title']; return t.rsplit(' - ', 1)[0] if c.get('source') and t.endswith(' - ' + c['source']) else t
+    original = {c['id']: orig(c) for c in pool}
     meta = load_meta(); verified = set(meta['verified']); skip = set(meta['skip'])
     since2 = (datetime.date.fromisoformat(today) - datetime.timedelta(days=1)).isoformat()
     since7 = (datetime.date.fromisoformat(today) - datetime.timedelta(days=7)).isoformat()
@@ -236,6 +239,12 @@ def summaries(today):
     recheck = [t for t in old if t['id'] not in verified][:MAX_RECHECK]
     print(f'{len(todo)} to summarise, {len(recheck)} older summaries to fact-check')
 
+    restored = 0
+    for t in todo + recheck:  # older runs let AI overwrite title_en; put the real headline back
+        o = original.get(t['id'])
+        if o and o != t['title_en']:
+            sb('PATCH', 'news_items?id=eq.' + t['id'], {'title_en': o}, 'return=minimal'); t['title_en'] = o; restored += 1
+    if restored: print(f'restored {restored} original English headlines')
     srcs = [source_of({**t, 'related': rel.get(t['id'])}, pool) for t in todo + recheck]
     if not srcs: return
     # Older summaries: check what is published now first; only rewrite the ones that fail
@@ -249,6 +258,7 @@ def summaries(today):
     passed, failed, junk = process(srcs)
 
     for i, f in passed.items():
+        f = {k: v for k, v in f.items() if k != 'title_en'}  # keep the original English headline as published
         sb('PATCH', 'news_items?id=eq.' + i, f, 'return=minimal'); verified.add(i); meta['failed'].pop(i, None)
     for i in failed:
         meta['failed'][i] = meta['failed'].get(i, 0) + 1

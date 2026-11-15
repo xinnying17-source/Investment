@@ -95,7 +95,7 @@ def main():
                 sys.exit(f'item {it.get("id")} missing {f}')
     if items:
         for it in items:  # enrich existing rows only (PATCH keeps day/url/source from the raw upload)
-            fields = {k: v for k, v in it.items() if k in ('title_zh', 'title_en', 'summary_zh', 'summary_en', 'impact_zh', 'impact_en', 'tags', 'chart_sym', 'story_key')}
+            fields = {k: v for k, v in it.items() if k in ('title_zh', 'summary_zh', 'summary_en', 'impact_zh', 'impact_en', 'tags', 'chart_sym', 'story_key')}
             call('PATCH', 'news_items?id=eq.' + it['id'], fields, 'return=minimal')
         print('enriched', len(items))
     if cur.get('stories'):
