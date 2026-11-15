@@ -63,3 +63,11 @@
 
 ## 背景音乐
 音乐在浏览器里用 Web Audio 即时生成（雨声钢琴、柔和氛围、棕噪音、Lo-fi），不需要音乐文件，也没有版权问题。浏览器规定要先点一下页面才能出声；切到别的 App 会自动暂停。
+
+## 每晚自动维护（省 Claude 额度版）
+| 马来西亚时间 | 谁做 | 费用 | 做什么 |
+|---|---|---|---|
+| 12:00 am | GitHub Actions | 免费 | 抓新闻标题和股价、上传、删除 7 天前的新闻、跑自动测试，失败就开 Issue 通知 |
+| 12:30 am | Claude 定时任务 | Claude 额度 | 只为最重要的 10–15 条新闻写中英白话摘要；来龙去脉每周日更新；只有测试失败时才修 bug |
+
+GitHub Actions 需要一个 Secret：GitHub 仓库 → Settings → Secrets and variables → Actions → New repository secret → 名称 `INGEST_KEY`，值是 Supabase 的新闻写入钥匙。

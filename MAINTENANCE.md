@@ -1,35 +1,29 @@
-# Nightly maintenance (runs automatically at 12:00 am, Malaysia time)
+# Nightly maintenance
 
-A scheduled Claude task starts a fresh cloud session every night and follows this file.
+Two parts, chosen to keep Claude usage low:
+
+| Time (Malaysia) | Who | Cost | What |
+|---|---|---|---|
+| 12:00 am | GitHub Actions (`.github/workflows/nightly.yml`) | Free | Fetch headlines + market prices, upload headline-only news, delete news older than 7 days, run `tests/smoke.js --live`, record the result as `news_meta.health`, open an issue on failure |
+| 12:30 am | Claude scheduled task | Claude usage | Add plain-language summaries to the 10–15 most important new headlines; update storylines on Sundays only; fix bugs only if tonight's health check failed |
+
 Owner decisions this routine must respect:
-- Small fixes go live automatically; big changes become a pull request for the owner to merge.
+- Small fixes go live via a merged pull request; big changes become a pull request for the owner.
 - News covers Malaysia + Global only.
-- Never change the design, wording style, settings, or data of existing users unless fixing a bug.
+- Never change the design, wording style, settings, or user data except to fix a bug. Never skip or weaken a test.
 
-## 1. Update the code
-- `git fetch origin main` and work from the latest `main`.
-
-## 2. Refresh financial news
-1. `python3 scripts/news_fetch.py` → writes `news/_work/candidates.json` (headlines from the last ~24h) and `news/_work/markets.json`.
-2. For every bucket in `news/buckets.json`, pick at most `max_items_per_bucket` headlines that matter to a Malaysian beginner investor. Skip duplicates, opinion pieces, adverts and anything already covered in the last 7 days (check with a read of `news_items`).
-3. For each picked headline write a JSON item (fields listed in `scripts/news_upload.py`):
-   - `title_zh` / `title_en`: a short plain-language headline in each language.
-   - `summary_zh` / `summary_en`: 2–3 sentences in everyday language. Explain jargon in brackets. Never copy the article text; summarise from the headline and what you can verify (WebSearch is allowed). If unsure, say so.
-   - `impact_zh` / `impact_en`: one sentence “what this means for an ordinary investor”, educational, never a buy/sell call.
-   - `tags`: 1–3 of `{k:"up"|"down"|"watch", zh, en}` for who is affected and how.
-   - `chart_sym`: one of the market symbols if a price chart helps (e.g. `brent` for oil news, `aapl` for Apple, `usdmyr` for ringgit news), otherwise omit.
-   - `day`: today in Malaysia time (YYYY-MM-DD). `id`: from the candidate.
-4. Update storylines (`stories`): for each bucket with news, keep one story `key = country-industry` with up to 8 dated bullets covering the last ~90 days (`story_zh` / `story_en` = `[{d, t}]`). Add the new development; drop the oldest beyond 8. Use background knowledge or WebSearch for older context, clearly dated.
-5. Save as `news/_work/curated.json` and run `python3 scripts/news_upload.py` (deletes items older than 7 days automatically).
-6. If fetching fails, upload `{"items":[],"status":"fetch failed: <reason>"}` so the app shows the warning, and report it.
-
-## 3. Check for bugs
-1. `node tests/smoke.js --live`.
-2. If it passes and news uploaded: stop and report “all good”.
-3. If something fails, find the cause and fix it on a new branch, then rebuild the app with `python3 scripts/build_app.py` and re-run the test until it passes.
-   - **Small fix** (≤ ~40 changed lines, no new feature, no text/design change beyond the bug): open a PR, then merge it yourself once the smoke test passes.
-   - **Anything bigger**: open a PR and leave it for the owner, explaining the problem in plain Chinese.
-4. Never skip or weaken a test to make it pass.
-
-## 4. Report
-Finish with a short summary: news items added per bucket, markets updated, test result, and any PR opened or merged.
+## Claude task steps (12:30 am)
+1. Work from the latest `main`.
+2. Read health: `GET {SUPABASE_URL}/rest/v1/news_meta?k=eq.health` (anon key from `docs/config.js`).
+3. **Summaries** (always): read today's items without a Chinese summary:
+   `news_items?select=id,country,industry,title_en,source,url&day=eq.<today MYT>&summary_zh=is.null`.
+   Pick the **10–15 most useful** for a Malaysian beginner investor across both countries (skip duplicates, adverts, opinion pieces).
+   For each, write: `title_zh`, `title_en` (plain), `summary_zh`/`summary_en` (2–3 everyday sentences, jargon explained in brackets, never copied text, say when unsure), `impact_zh`/`impact_en` (one educational sentence, never buy/sell advice), `tags` (1–3 of `{k:"up"|"down"|"watch", zh, en}`), optional `chart_sym` (`klci`, `usdmyr`, `spx`, `aapl`, `gold`, `brent`).
+   Also delete headlines that are clearly not about business, markets or the economy (sports, festivals, accidents, other countries’ local utilities, duplicates): `DELETE news_items?id=in.(…)` (the write header is injected automatically).
+   Save as `news/_work/curated.json` `{"items":[...]}` and run `python3 scripts/news_upload.py` (it PATCHes only those rows).
+4. **Storylines** (Sundays only): for buckets with news this week, upsert `stories` (`key = country-industry`, up to 8 dated bullets over ~90 days, `story_zh`/`story_en` = `[{d,t}]`).
+5. **Bugs** (only if `health.ok` is false): reproduce with `node tests/smoke.js`, fix on a new branch, `python3 scripts/build_app.py`, re-run until it passes.
+   - Small fix (≤ ~40 lines, no feature/design/wording change): open a PR and merge it once tests pass.
+   - Bigger: open a PR only, explained in simple Chinese.
+   If the failure is only a news source being down, don't change code; just report it.
+6. Finish with a short Chinese summary: items summarised, storylines updated (or skipped), health result, PRs.
