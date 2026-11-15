@@ -1,0 +1,41 @@
+{
+  "keep_days": 7,
+  "max_items_per_bucket": 3,
+  "countries": {
+    "my": {"zh": "马来西亚", "en": "Malaysia", "flag": "🇲🇾", "rss": {"hl": "en-MY", "gl": "MY", "ceid": "MY:en"}},
+    "global": {"zh": "全球", "en": "Global", "flag": "🌍", "rss": {"hl": "en-US", "gl": "US", "ceid": "US:en"}}
+  },
+  "industries": {
+    "my": [
+      {"key": "macro", "zh": "宏观与政策", "en": "Economy & policy", "icon": "🏛️", "q": "Malaysia (Bank Negara OR OPR OR ringgit OR budget OR inflation OR GDP)"},
+      {"key": "market", "zh": "股市大盘", "en": "Stock market", "icon": "📈", "q": "Bursa Malaysia (KLCI OR stocks OR market)"},
+      {"key": "banking", "zh": "银行与金融", "en": "Banking & finance", "icon": "🏦", "q": "Malaysia (bank OR banking OR Maybank OR \"Public Bank\" OR CIMB OR insurance)"},
+      {"key": "property", "zh": "房地产与 REIT", "en": "Property & REITs", "icon": "🏢", "q": "Malaysia (property OR REIT OR housing OR developer)"},
+      {"key": "plantation", "zh": "种植与原产品", "en": "Plantations & commodities", "icon": "🌴", "q": "Malaysia (palm oil OR CPO OR plantation OR rubber)"},
+      {"key": "energy", "zh": "能源与油气", "en": "Energy, oil & gas", "icon": "🛢️", "q": "Malaysia (Petronas OR oil OR gas OR energy OR Tenaga)"},
+      {"key": "tech", "zh": "科技与半导体", "en": "Tech & semiconductors", "icon": "💻", "q": "Malaysia (semiconductor OR \"data centre\" OR \"data center\" OR technology OR tech)"},
+      {"key": "consumer", "zh": "消费、零售与餐饮", "en": "Consumer, retail & F&B", "icon": "🍜", "q": "Malaysia (retail OR consumer OR restaurant OR \"food and beverage\" OR F&B OR supermarket)"},
+      {"key": "health", "zh": "医疗与手套", "en": "Healthcare & gloves", "icon": "🧤", "q": "Malaysia (healthcare OR hospital OR glove OR pharmaceutical)"},
+      {"key": "telco", "zh": "电讯与公用事业", "en": "Telecoms & utilities", "icon": "📶", "q": "Malaysia (telco OR telecommunications OR 5G OR utilities OR electricity tariff)"},
+      {"key": "transport", "zh": "交通、物流与旅游", "en": "Transport, logistics & tourism", "icon": "✈️", "q": "Malaysia (airline OR airport OR logistics OR port OR tourism)"},
+      {"key": "construction", "zh": "建筑与基建", "en": "Construction & infrastructure", "icon": "🏗️", "q": "Malaysia (construction OR infrastructure OR contract awarded OR MRT OR highway)"}
+    ],
+    "global": [
+      {"key": "macro", "zh": "央行与经济", "en": "Central banks & economy", "icon": "🏛️", "q": "(Federal Reserve OR Fed OR ECB OR inflation OR recession OR interest rates) economy"},
+      {"key": "market", "zh": "美股与全球股市", "en": "US & global stocks", "icon": "📈", "q": "(S&P 500 OR Nasdaq OR Dow OR \"stock market\") stocks"},
+      {"key": "bigtech", "zh": "科技巨头", "en": "Big Tech", "icon": "🍎", "q": "(Apple OR Microsoft OR Nvidia OR Google OR Amazon OR Meta) stock"},
+      {"key": "energy", "zh": "油价与能源", "en": "Oil & energy", "icon": "🛢️", "q": "(oil prices OR Brent OR OPEC OR natural gas)"},
+      {"key": "commodities", "zh": "黄金与原产品", "en": "Gold & commodities", "icon": "🪙", "q": "(gold price OR copper OR commodities)"},
+      {"key": "asia", "zh": "亚洲市场", "en": "Asian markets", "icon": "🌏", "q": "(China OR Japan OR Singapore OR \"Hong Kong\") stocks economy"},
+      {"key": "crypto", "zh": "加密货币", "en": "Crypto", "icon": "⚡", "q": "(bitcoin OR crypto OR ethereum) price"}
+    ]
+  },
+  "markets": [
+    {"sym": "klci", "zh": "富时隆综指", "en": "FBM KLCI", "stooq": "^klci", "yahoo": "^KLSE"},
+    {"sym": "usdmyr", "zh": "美元/令吉", "en": "USD/MYR", "stooq": "usdmyr", "yahoo": "MYR=X"},
+    {"sym": "spx", "zh": "标普 500", "en": "S&P 500", "stooq": "^spx", "yahoo": "^GSPC"},
+    {"sym": "aapl", "zh": "苹果 Apple", "en": "Apple (AAPL)", "stooq": "aapl.us", "yahoo": "AAPL"},
+    {"sym": "gold", "zh": "黄金（美元/盎司）", "en": "Gold (US$/oz)", "stooq": "xauusd", "yahoo": "GC=F"},
+    {"sym": "brent", "zh": "布伦特原油", "en": "Brent crude", "stooq": "cb.f", "yahoo": "BZ=F"}
+  ]
+}
