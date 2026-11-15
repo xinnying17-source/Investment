@@ -19,6 +19,7 @@ Owner decisions this routine must respect:
    `news_items?select=id,country,industry,title_en,source,url&day=eq.<today MYT>&summary_zh=is.null`.
    Pick the **10–15 most useful** for a Malaysian beginner investor across both countries (skip duplicates, adverts, opinion pieces).
    For each, write: `title_zh`, `title_en` (plain), `summary_zh`/`summary_en` (2–3 everyday sentences, jargon explained in brackets, never copied text, say when unsure), `impact_zh`/`impact_en` (one educational sentence, never buy/sell advice), `tags` (1–3 of `{k:"up"|"down"|"watch", zh, en}`), optional `chart_sym` (`klci`, `usdmyr`, `spx`, `aapl`, `gold`, `brent`).
+   Also delete headlines that are clearly not about business, markets or the economy (sports, festivals, accidents, other countries’ local utilities, duplicates): `DELETE news_items?id=in.(…)` (the write header is injected automatically).
    Save as `news/_work/curated.json` `{"items":[...]}` and run `python3 scripts/news_upload.py` (it PATCHes only those rows).
 4. **Storylines** (Sundays only): for buckets with news this week, upsert `stories` (`key = country-industry`, up to 8 dated bullets over ~90 days, `story_zh`/`story_en` = `[{d,t}]`).
 5. **Bugs** (only if `health.ok` is false): reproduce with `node tests/smoke.js`, fix on a new branch, `python3 scripts/build_app.py`, re-run until it passes.
