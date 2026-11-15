@@ -51,15 +51,15 @@
   function zh(e){const m=(e&&e.message||'')+'';if(/Invalid login/i.test(m))return T('Email 或密码不正确。','Wrong email or password.');if(/Email not confirmed/i.test(m))return T('这个账号还没确认，请先到邮箱点击确认链接。','This account isn’t confirmed yet. Click the link in your confirmation email first.');if(/already registered|already exists/i.test(m))return T('这个 Email 已经注册过了，请直接登录。','This email is already registered. Please sign in.');if(/Password should be/i.test(m))return T('密码至少要 6 个字符。','Passwords need at least 6 characters.');if(/rate limit|too many/i.test(m))return T('尝试太多次了，请稍后再试。','Too many attempts. Please try again later.');if(/fetch|network/i.test(m))return T('连不上服务器，请检查网络。','Can’t reach the server. Check your connection.');return m||T('发生错误，请再试一次。','Something went wrong. Please try again.');}
 
   let resolveUser;const userReady=new Promise(r=>resolveUser=r);let client=null,user=null;
-  function showAccount(u){if(!document.querySelector('.top .meter')&&document.readyState==='loading'){document.addEventListener('DOMContentLoaded',()=>showAccount(u));return;}let el=document.getElementById('acct');if(!el){el=document.createElement('div');el.className='acct';el.id='acct';const meter=document.querySelector('.top .meter');(meter?meter.parentNode:document.body).appendChild(el);}
+  function showAccount(u){if(!document.getElementById('acctSlot')&&document.readyState==='loading'){document.addEventListener('DOMContentLoaded',()=>showAccount(u));return;}let el=document.getElementById('acct');if(!el){el=document.createElement('div');el.className='acct';el.id='acct';const meter=document.querySelector('.top .meter');(document.getElementById('acctSlot')||(meter?meter.parentNode:document.body)).appendChild(el);}
     el.innerHTML='';const sp=document.createElement('span');sp.textContent='👤 '+u.email;const b=document.createElement('button');b.textContent=T('登出','Sign out');b.onclick=async()=>{try{await client.auth.signOut();}catch(e){}ls.del(PKEY);ls.del(OWNER);location.reload();};el.append(sp,b);}
-  function signedIn(u){user=u;box.hidden=true;showAccount(u);resolveUser(u);}
+  function signedIn(u){user=u;window.SBUSER=u;box.hidden=true;showAccount(u);resolveUser(u);}
 
   if(!configured){
     // Cloud not set up yet: app still works with on-device progress.
     return;
   }
-  client=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:store,storageKey:'ig-auth'}});
+  client=window.SB=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:store,storageKey:'ig-auth'}});
   document.body.appendChild(box);box.hidden=true;
   function wire(){
   box.querySelectorAll('#aseg button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));

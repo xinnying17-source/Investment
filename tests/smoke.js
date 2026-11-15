@@ -31,6 +31,7 @@ fs.writeFileSync(tmp, '<!doctype html><html><head><meta charset="utf-8"><meta na
           const s = S.sim; if (!s.done) out.push('sim not finished ' + sc); if (!isFinite(s.hn[s.n]) || s.cash < -1) out.push('sim numbers broken ' + sc);
           const etf = PATH.ETF.p[s.n] / PATH.ETF.p[0]; if (etf > 6 || etf < 0.2) out.push('unrealistic ETF path ' + etf.toFixed(2) + ' ' + sc);
         }
+        try { buildPlan({ goal: 'basics', months: 3, dpw: 5 }); if (!S.plan2 || S.plan2.items.length < C.length) out.push('plan too short'); if (!todayItems().length) out.push('plan has nothing for today'); show('today'); if (!document.querySelector('#todayRoot .checklist')) out.push('today checklist missing'); show('me'); if (!document.querySelector('#meStats .kpis')) out.push('me stats missing'); openSettings(); if (!document.querySelector('#setBody [data-track]')) out.push('settings music missing'); closeSettings(); celebrate(); if (!icsText().includes('BEGIN:VEVENT')) out.push('calendar file broken'); } catch (e) { out.push('plan/today/me/settings: ' + e.message); }
         S.sim = null; return out;
       }, L);
       fails.push(...r.map(x => `[${vp.width} ${L}] ${x}`));
