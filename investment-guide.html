@@ -429,7 +429,7 @@ html[lang="en"] h1,html[lang="en"] h2,html[lang="en"] h3{letter-spacing:0;font-w
 .heat i.on{background:var(--accent);border-color:var(--accent)}
 .heat i.t{outline:2px solid var(--ink);outline-offset:1px}
 /* lesson slides */
-.slides{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;align-items:flex-start;overscroll-behavior-x:contain}
+.slides{display:flex;gap:0;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;align-items:flex-start;overscroll-behavior-x:contain}
 .slides::-webkit-scrollbar{display:none}
 .slide{flex:0 0 100%;scroll-snap-align:start;min-width:0;display:flex;flex-direction:column;gap:14px;background:var(--surface2);border:1px solid var(--line);border-radius:20px;padding:18px 16px;min-height:min(52vh,420px)}
 .sno{align-self:flex-end;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -2480,13 +2480,16 @@ function openCard(id){
   $('#dBody').innerHTML='<div class="dtitle"><div class="en">'+esc(v.sub)+'</div><h2 id="dTitle">'+esc(v.t)+'</h2></div>'+
     '<div class="ltabs" role="tablist">'+TABS.map(t=>'<button class="ltab" role="tab" data-t="'+t[0]+'">'+t[1]+(t[2]?'<span class="n">'+t[2]+'</span>':'')+((S.viewed[id]||{})[t[0]]?'<span class="seen">✓</span>':'')+'</button>').join('')+'</div>'+
     Object.keys(P).map(k=>'<div class="lpanel" data-p="'+k+'" hidden>'+P[k]+'</div>').join('');
-  const showT=t=>{lastTab=t;markViewed(id,t);markActive();$('#dBody').querySelectorAll('.ltab').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===t));$('#dBody').querySelectorAll('.lpanel').forEach(x=>x.hidden=x.dataset.p!==t);const sl=$('#dBody').querySelector('.lpanel[data-p="'+t+'"] .slides');if(sl){sl.scrollLeft=0;upd(sl);}};
-  const upd=sl=>{const p=sl.closest('.lpanel'),n=sl.children.length,w=sl.clientWidth||1,idx=Math.min(n-1,Math.round(sl.scrollLeft/w)),k=sl.dataset.s;p.querySelectorAll('.sdots i').forEach((d,j)=>d.classList.toggle('on',j===idx));
+  const showT=t=>{lastTab=t;markActive();$('#dBody').querySelectorAll('.ltab').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===t));$('#dBody').querySelectorAll('.lpanel').forEach(x=>x.hidden=x.dataset.p!==t);const sl=$('#dBody').querySelector('.lpanel[data-p="'+t+'"] .slides');if(sl){sl.scrollLeft=0;upd(sl,0);}};
+  const posOf=(sl,i)=>sl.children[i].offsetLeft-sl.children[0].offsetLeft;
+  const nearest=sl=>{let b=0,d=1e9;for(let i=0;i<sl.children.length;i++){const x=Math.abs(posOf(sl,i)-sl.scrollLeft);if(x<d){d=x;b=i;}}return b;};
+  const goTo=(sl,i)=>{i=Math.max(0,Math.min(sl.children.length-1,i));sl.dataset.i=i;sl.scrollTo({left:posOf(sl,i),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});upd(sl,i);};
+  const upd=(sl,force)=>{const p=sl.closest('.lpanel'),n=sl.children.length,idx=force!=null?force:nearest(sl),k=sl.dataset.s;sl.dataset.i=idx;p.querySelectorAll('.sdots i').forEach((d,j)=>d.classList.toggle('on',j===idx));
     const nb=p.querySelector('.snext'),pb=p.querySelector('.sprev');pb.disabled=idx===0;nb.textContent=idx<n-1?tr('下一张 →','Next →'):NEXT[k]?({deep:tr('下一步：深入 →','Next: Deeper →'),cases:tr('下一步：案例 →','Next: Cases →'),drills:tr('下一步：练习 →','Next: Practice →')}[NEXT[k]]):tr('完成，下一课 →','Done, next lesson →');nb.dataset.end=idx>=n-1?'1':'';};
   $('#dBody').querySelectorAll('.ltab').forEach(b=>b.onclick=()=>showT(b.dataset.t));
-  $('#dBody').querySelectorAll('.slides').forEach(sl=>{let h;sl.addEventListener('scroll',()=>{clearTimeout(h);h=setTimeout(()=>upd(sl),60);},{passive:true});const p=sl.closest('.lpanel');
-    p.querySelector('.sprev').onclick=()=>sl.scrollBy({left:-sl.clientWidth,behavior:'smooth'});
-    p.querySelector('.snext').onclick=e=>{if(e.currentTarget.dataset.end){const nx=NEXT[sl.dataset.s];if(nx){showT(nx);$('#dBody').scrollTop=0;}else{if(!S.known[id]){S.known[id]=true;srsLearn(id);save();updateProgress();setKnowBtn();celebrate(tr('学完一课！','Lesson complete!'));}step(1);}}else sl.scrollBy({left:sl.clientWidth,behavior:'smooth'});};});
+  $('#dBody').querySelectorAll('.slides').forEach(sl=>{let h;sl.addEventListener('scroll',()=>{clearTimeout(h);h=setTimeout(()=>upd(sl),90);},{passive:true});const p=sl.closest('.lpanel');
+    p.querySelector('.sprev').onclick=()=>goTo(sl,(+sl.dataset.i||0)-1);
+    p.querySelector('.snext').onclick=e=>{if(e.currentTarget.dataset.end){markViewed(id,sl.dataset.s);const nx=NEXT[sl.dataset.s];if(nx){showT(nx);$('#dBody').scrollTop=0;}else{if(!S.known[id]){S.known[id]=true;srsLearn(id);save();updateProgress();setKnowBtn();celebrate(tr('学完一课！','Lesson complete!'));}lastTab='intro';step(1);}}else goTo(sl,(+sl.dataset.i||0)+1);};});
   showT(lastTab);
   $('#dBody').querySelectorAll('.opt').forEach(btn=>btn.onclick=()=>{
     const k=+btn.dataset.k, ok=k===q[2];
@@ -2498,7 +2501,7 @@ function openCard(id){
 }
 function setKnowBtn(){const k=!!S.known[cur]; const b=$('#dKnow'); b.textContent=k?tr('✓ 已懂（再点取消）','✓ Understood (tap to undo)'):tr('我懂了','Got it'); b.classList.toggle('done',k);}
 function closeCard(){$('#drawer').classList.remove('on'); $('#scrim').classList.remove('on'); const ch=document.querySelector('.chip[data-id="'+cur+'"]'); if(ch) ch.focus();}
-function step(dir){const c=byId[cur], l=inBranch(c[1]); let i=l.indexOf(c)+dir; if(i<0||i>=l.length){const bi=(ORDER.indexOf(c[1])+dir+ORDER.length)%ORDER.length; const nl=inBranch(ORDER[bi]); openCard((dir>0?nl[0]:nl[nl.length-1])[0]);} else openCard(l[i][0]);}
+function step(dir){lastTab='intro';const c=byId[cur], l=inBranch(c[1]); let i=l.indexOf(c)+dir; if(i<0||i>=l.length){const bi=(ORDER.indexOf(c[1])+dir+ORDER.length)%ORDER.length; const nl=inBranch(ORDER[bi]); openCard((dir>0?nl[0]:nl[nl.length-1])[0]);} else openCard(l[i][0]);}
 $('#dClose').onclick=closeCard; $('#scrim').onclick=closeCard;
 $('#dPrev').onclick=()=>step(-1); $('#dNext').onclick=()=>step(1);
 $('#dKnow').onclick=()=>{S.known[cur]=!S.known[cur]; if(!S.known[cur]){delete S.known[cur]; if(S.srs)delete S.srs[cur];} else srsLearn(cur); save(); setKnowBtn(); updateProgress();};
