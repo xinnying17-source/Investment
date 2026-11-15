@@ -1,6 +1,7 @@
 {
   "keep_days": 7,
   "max_items_per_bucket": 3,
+  "max_items_per_bucket_day": 6,
   "countries": {
     "my": {"zh": "马来西亚", "en": "Malaysia", "flag": "🇲🇾", "rss": {"hl": "en-MY", "gl": "MY", "ceid": "MY:en"}},
     "global": {"zh": "全球", "en": "Global", "flag": "🌍", "rss": {"hl": "en-US", "gl": "US", "ceid": "US:en"}}
