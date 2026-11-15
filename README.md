@@ -64,15 +64,18 @@
 ## 背景音乐
 音乐在浏览器里用 Web Audio 即时生成（雨声钢琴、柔和氛围、棕噪音、Lo-fi），不需要音乐文件，也没有版权问题。浏览器规定要先点一下页面才能出声；切到别的 App 会自动暂停。
 
-## 每晚自动维护（省 Claude 额度版）
+## 新闻自动更新与维护（省 Claude 额度版）
 | 马来西亚时间 | 谁做 | 费用 | 做什么 |
 |---|---|---|---|
-| 12:00 am | GitHub Actions | 免费 | 抓新闻标题和股价、上传、删除 7 天前的新闻、跑自动测试，失败就开 Issue 通知 |
-| 12:30 am | Claude 定时任务 | Claude 额度 | 只为最重要的 10–15 条新闻写中英白话摘要；来龙去脉每周日更新；只有测试失败时才修 bug |
+| 早上 7 点到晚上 11 点，每小时 | GitHub Actions + Gemini | 免费 | 抓新标题和股价，为**每一条**新闻写中英白话摘要；第二道 AI 逐条核对，程序核对每个数字，没通过的只显示原标题 |
+| 12:00 am | GitHub Actions | 免费 | 以上全部，加上删除 7 天前的新闻、跑自动测试（失败就开 Issue）、周日更新来龙去脉 |
+| 12:30 am | Claude 定时任务 | 很少的 Claude 额度 | 只有测试失败时才修 bug；Gemini 故障时才补写摘要 |
+
+**准确性规则：** 新闻来源只有标题（Google News 不提供全文），所以摘要只能用白话复述标题里的内容，不加入人名、数字、日期、原因或结果；预测、计划和商谈就写成预测、计划和商谈。
 
 GitHub Actions 需要一个 Secret：GitHub 仓库 → Settings → Secrets and variables → Actions → New repository secret → 名称 `INGEST_KEY`，值是 Supabase 的新闻写入钥匙。
 
 ## 免费版 Claude 也能维持（Gemini 免费摘要）
 1. 打开 https://aistudio.google.com/apikey ，用 Google 账号登录 → **Create API key** → 复制
 2. GitHub 仓库 → Settings → Secrets and variables → Actions → New repository secret → 名称 `GEMINI_API_KEY`，贴上 key
-3. 每晚 1:30am 的免费任务只会为「还没有摘要」的新闻写摘要。Claude 还在跑的时候它几乎什么都不用做；Claude 停了就自动接手。
+3. 每小时的免费任务会为所有还没有摘要的新闻写摘要并核对。Claude 停了也完全不影响。
