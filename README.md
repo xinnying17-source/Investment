@@ -71,3 +71,8 @@
 | 12:30 am | Claude 定时任务 | Claude 额度 | 只为最重要的 10–15 条新闻写中英白话摘要；来龙去脉每周日更新；只有测试失败时才修 bug |
 
 GitHub Actions 需要一个 Secret：GitHub 仓库 → Settings → Secrets and variables → Actions → New repository secret → 名称 `INGEST_KEY`，值是 Supabase 的新闻写入钥匙。
+
+## 免费版 Claude 也能维持（Gemini 免费摘要）
+1. 打开 https://aistudio.google.com/apikey ，用 Google 账号登录 → **Create API key** → 复制
+2. GitHub 仓库 → Settings → Secrets and variables → Actions → New repository secret → 名称 `GEMINI_API_KEY`，贴上 key
+3. 每晚 1:30am 的免费任务只会为「还没有摘要」的新闻写摘要。Claude 还在跑的时候它几乎什么都不用做；Claude 停了就自动接手。

@@ -1,11 +1,12 @@
 # Nightly maintenance
 
-Two parts, chosen to keep Claude usage low:
+Three parts, chosen to keep Claude usage low and keep working on the free Claude plan:
 
 | Time (Malaysia) | Who | Cost | What |
 |---|---|---|---|
 | 12:00 am | GitHub Actions (`.github/workflows/nightly.yml`) | Free | Fetch headlines + market prices, upload headline-only news, delete news older than 7 days, run `tests/smoke.js --live`, record the result as `news_meta.health`, open an issue on failure |
-| 12:30 am | Claude scheduled task | Claude usage | Add plain-language summaries to the 10–15 most important new headlines; update storylines on Sundays only; fix bugs only if tonight's health check failed |
+| 12:30 am | Claude scheduled task (paid plan only) | Claude usage | Add plain-language summaries to the 10–15 most important new headlines; update storylines on Sundays only; fix bugs only if tonight's health check failed |
+| 1:30 am | GitHub Actions + Google Gemini free API | Free | Fills in summaries only for headlines still missing one (up to 15 a day in total), removes irrelevant headlines, and on Sundays adds the week's developments to storylines. Does nothing while Claude has already done the job, so it takes over automatically after a downgrade. Off unless the `GEMINI_API_KEY` secret exists. |
 
 Owner decisions this routine must respect:
 - Small fixes go live via a merged pull request; big changes become a pull request for the owner.
@@ -27,3 +28,6 @@ Owner decisions this routine must respect:
    - Bigger: open a PR only, explained in simple Chinese.
    If the failure is only a news source being down, don't change code; just report it.
 6. Finish with a short Chinese summary: items summarised, storylines updated (or skipped), health result, PRs.
+
+## On the free Claude plan
+Scheduled Claude tasks need Pro or above. After a downgrade the 12:30 am task stops by itself; the 12:00 am and 1:30 am GitHub Actions keep everything running. Bug fixes then become manual: the failed-check issue tells you something broke. The workflow re-enables itself every night, so GitHub's 60-day idle pause doesn't apply.
