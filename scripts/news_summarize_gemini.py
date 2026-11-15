@@ -40,29 +40,51 @@ def _call(model, gc, prompt, key):
         out = json.load(r)
     return json.loads(out['candidates'][0]['content']['parts'][0]['text'])
 
+_MODELS = None
+_DOWN = False
+
+def models():
+    """Pick working models from Google's live list (names get retired, e.g. a hard-coded one returned 404)."""
+    global _MODELS
+    if _MODELS is not None: return _MODELS
+    want = [os.environ.get('GEMINI_MODEL') or '', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest']
+    try:
+        req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', headers={'x-goog-api-key': os.environ['GEMINI_API_KEY']})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            live = {m['name'].split('/', 1)[1] for m in json.load(r).get('models', []) if 'generateContent' in m.get('supportedGenerationMethods', [])}
+        flash = sorted((m for m in live if re.fullmatch(r'gemini-\d+(\.\d+)?-flash(-lite)?', m)), reverse=True)
+        _MODELS = [m for m in dict.fromkeys(want + flash) if m and m in live][:4] or [m for m in want if m]
+    except Exception as e:
+        print('model list unavailable, using defaults:', type(e).__name__); _MODELS = [m for m in want if m]
+    print('Gemini models:', ', '.join(_MODELS))
+    return _MODELS
+
 def gemini(prompt, temperature=0.2):
-    """Thinking off (fast). Per model: one retry on timeout/overload; if thinkingBudget is rejected, retry without it; otherwise move to the next model."""
+    """Thinking off (fast). Busy (429/500/503) or timeout: wait 30s then 60s and retry, then try the next model.
+    If every model fails, mark Gemini as down for the rest of this run (next hour's run tries again)."""
+    global _DOWN
+    if _DOWN: raise RuntimeError('Gemini marked unavailable earlier in this run')
     key = os.environ['GEMINI_API_KEY']
-    models = [m for m in [os.environ.get('GEMINI_MODEL'), 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'] if m]
     base = {'responseMimeType': 'application/json', 'temperature': temperature}
     errors = []
-    for m in dict.fromkeys(models):
+    for m in models():
         gc = dict(base, thinkingConfig={'thinkingBudget': 0})
         for attempt in range(3):
             try:
                 return _call(m, gc, prompt, key)
             except urllib.error.HTTPError as e:
-                msg = f'{m}: HTTP {e.code} {e.read().decode()[:160]}'; errors.append(msg)
+                msg = f'{m}: HTTP {e.code} {e.read().decode()[:120]}'; errors.append(msg)
                 if e.code == 400 and 'thinking' in msg.lower() and 'thinkingConfig' in gc:
                     gc = dict(base); continue
-                if e.code in (429, 500, 503) and attempt == 0:
-                    time.sleep(20); continue
+                if e.code in (429, 500, 503) and attempt < 2:
+                    time.sleep(30 * (attempt + 1)); continue
                 break
             except (TimeoutError, urllib.error.URLError, json.JSONDecodeError, KeyError, IndexError) as e:
                 errors.append(f'{m}: {type(e).__name__}')
-                if attempt == 0:
+                if attempt < 1:
                     continue
                 break
+    _DOWN = True
     raise RuntimeError('; '.join(errors[-3:]))
 
 # ---------------------------------------------------------------- sources
@@ -162,7 +184,7 @@ def clean_item(x, allowed):
     return x['id'], f
 
 def check(pairs):
-    """pairs: [(src, out)] -> (passed {id: out}, failed {id: problem})"""
+    """pairs: [(src, out)] -> (passed {id: out}, failed {id: problem}). Items the checker could not reach are in neither."""
     passed, failed, to_judge = {}, {}, []
     for s, o in pairs:
         ok, why = numbers_ok(o, s)
@@ -173,7 +195,7 @@ def check(pairs):
         try:
             verdict = verify(chunk)
         except RuntimeError as e:
-            print('verify unavailable:', str(e)[:200]); verdict = {}
+            print('verify unavailable, will retry next run:', str(e)[:200]); continue
         for s, o in chunk:
             ok, why = verdict.get(s['id'], (False, 'not checked'))
             if ok: passed[s['id']] = o
@@ -254,7 +276,8 @@ def summaries(today):
         ok_old, bad_old = check([(s, cur[s['id']]) for s in srcs if s['id'] in cur])
         verified |= set(ok_old)
         srcs = [s for s in srcs if s['id'] not in ok_old]
-        print(f'fact-check of older summaries: {len(ok_old)} ok, {len(bad_old)} need a rewrite')
+        print(f'fact-check of older summaries: {len(ok_old)} ok, {len(bad_old)} need a rewrite, {len(recheck) - len(ok_old) - len(bad_old)} not checked (Gemini busy)')
+        srcs = [s for s in srcs if s['id'] not in old_ids or s['id'] in bad_old]
     passed, failed, junk = process(srcs)
 
     for i, f in passed.items():

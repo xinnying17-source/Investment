@@ -2136,7 +2136,9 @@ const NEWS_I={my:[['macro','🏛️','宏观与政策','Economy & policy'],['mar
 let newsC='my',newsI='',newsRange='today',newsCache={},newsBusy=false;
 const NTAG={up:['🟢','利好','Positive'],down:['🔴','利空','Negative'],watch:['🟡','观察','Watch']};
 function nGet(path){const c=window.APP_CONFIG;const k='q:'+path;const hit=newsCache[k];if(hit&&Date.now()-hit.t<6e5)return Promise.resolve(hit.d);
- return fetch(c.SUPABASE_URL+'/rest/v1/'+path,{headers:{apikey:c.SUPABASE_ANON_KEY}}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(d=>{newsCache[k]={t:Date.now(),d};return d;});}
+ // Private app: news is readable only by the owner's login, so send the session token
+ const tok=window.SB?window.SB.auth.getSession().then(({data})=>data&&data.session&&data.session.access_token).catch(()=>null):Promise.resolve(null);
+ return tok.then(t=>fetch(c.SUPABASE_URL+'/rest/v1/'+path,{headers:Object.assign({apikey:c.SUPABASE_ANON_KEY},t?{Authorization:'Bearer '+t}:{})})).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(d=>{newsCache[k]={t:Date.now(),d};return d;});}
 const dayStr=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
 function renderNews(){const root=$('#newsRoot');if(!root)return;
  const c=window.APP_CONFIG;if(!c||!c.SUPABASE_URL||/YOUR-PROJECT/.test(c.SUPABASE_URL)){root.innerHTML='<div class="panel"><h2>'+tr('📰 财经新闻','📰 Financial news')+'</h2><p>'+tr('财经新闻需要每天连接外部资料，只在 App 版提供。','Financial news needs a daily connection to outside data, so it is only available in the App version.')+'</p><p><a href="https://xinnying17-source.github.io/Investment/#news" target="_blank" rel="noopener">'+tr('打开 App 版的财经新闻 ↗','Open financial news in the App ↗')+'</a></p></div>';return;}
