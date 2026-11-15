@@ -1,0 +1,17 @@
+{
+  "name": "投资白话地图",
+  "short_name": "投资地图",
+  "description": "投资新手的白话学习 App：概念地图、真实案例图表、组合类型、5 年投资模拟器。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EEF3F1",
+  "theme_color": "#17302A",
+  "lang": "zh-CN",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
