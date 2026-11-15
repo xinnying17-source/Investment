@@ -6,6 +6,8 @@
   const ls={get:k=>{try{return localStorage.getItem(k);}catch(e){return null;}},set:(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}},del:k=>{try{localStorage.removeItem(k);}catch(e){}}};
   const keep=()=>ls.get(KEEP)!=='0';
   let lang=ls.get('ig-lang')==='en'?'en':'zh';const T=(zh,en)=>lang==='en'?en:zh;
+  const esc=v=>String(v).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+  function hello(){const n=ls.get('ig-name'),h=new Date().getHours(),g=h<12?T('早安','Good morning'):h<18?T('午安','Good afternoon'):T('晚上好','Good evening');return n?g+T('，',', ')+esc(n)+' 👋':T('投资白话地图','Plain-Talk Investing Map');}
   const store={getItem:k=>{try{return (keep()?localStorage:sessionStorage).getItem(k);}catch(e){return null;}},
     setItem:(k,v)=>{try{(keep()?localStorage:sessionStorage).setItem(k,v);(keep()?sessionStorage:localStorage).removeItem(k);}catch(e){}},
     removeItem:k=>{try{localStorage.removeItem(k);sessionStorage.removeItem(k);}catch(e){}}};
@@ -29,8 +31,9 @@
   const box=document.createElement('div');box.className='auth';box.id='auth';
   function drawForm(){box.innerHTML=`<form class="acard" id="aform" novalidate>
    <div class="alang"><button type="button" data-l="zh" aria-pressed="${lang==='zh'}">中文</button><button type="button" data-l="en" aria-pressed="${lang==='en'}">English</button></div>
-   <div class="alogo"><img src="icons/icon-192.png" alt=""><div><h1>${T('投资白话地图','Plain-Talk Investing Map')}</h1><p>${T('登入后，学习进度和模拟器会保存到云端，换手机或电脑也能接着学。','Sign in to save your learning progress and simulator to the cloud, so you can continue on any phone or computer.')}</p></div></div>
+   <div class="alogo"><img src="icons/icon-192.png" alt=""><div><h1>${hello()}</h1><p>${T('登入后，学习进度和模拟器会保存到云端，换手机或电脑也能接着学。','Sign in to save your learning progress and simulator to the cloud, so you can continue on any phone or computer.')}</p></div></div>
    <div class="aseg" id="aseg"><button type="button" data-m="in" aria-pressed="true">${T('登录','Sign in')}</button><button type="button" data-m="up" aria-pressed="false">${T('注册新账号','Create account')}</button></div>
+   <label for="a-name" id="a-namel" hidden>${T('你的称呼（用户名）','What should we call you?')}<input type="text" id="a-name" autocomplete="nickname" maxlength="20" placeholder="${T('例如：小莹','e.g. Ying')}"></label>
    <label for="a-email">Email<input type="email" id="a-email" autocomplete="email" required></label>
    <label for="a-pw" id="a-pwl">${T('密码','Password')}<input type="password" id="a-pw" autocomplete="current-password" minlength="6" required></label>
    <label for="a-pw2" id="a-pw2l" hidden>${T('再输入一次密码','Repeat password')}<input type="password" id="a-pw2" autocomplete="new-password" minlength="6"></label>
@@ -43,7 +46,7 @@
   drawForm();
   let mode='in';
   function setMode(m){mode=m;box.querySelectorAll('#aseg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===m));
-    $a('#a-pw2l').hidden=m!=='up'&&m!=='reset';$a('#a-pwl').hidden=m==='forgot';$a('#a-email').closest('label').hidden=m==='reset';
+    $a('#a-pw2l').hidden=m!=='up'&&m!=='reset';$a('#a-namel').hidden=m!=='up';$a('#a-pwl').hidden=m==='forgot';$a('#a-email').closest('label').hidden=m==='reset';
     $a('#a-go').textContent={in:T('登录','Sign in'),up:T('注册','Create account'),forgot:T('发送重设密码邮件','Send reset email'),reset:T('设置新密码','Set new password')}[m];
     $a('#a-pw').autocomplete=m==='in'?'current-password':'new-password';$a('#a-forgot').hidden=m!=='in';$a('#a-keep').closest('label').hidden=m==='forgot'||m==='reset';msg('');}
   const $a=q=>box.querySelector(q);
@@ -52,8 +55,8 @@
 
   let resolveUser;const userReady=new Promise(r=>resolveUser=r);let client=null,user=null;
   function showAccount(u){if(!document.getElementById('acctSlot')&&document.readyState==='loading'){document.addEventListener('DOMContentLoaded',()=>showAccount(u));return;}let el=document.getElementById('acct');if(!el){el=document.createElement('div');el.className='acct';el.id='acct';const meter=document.querySelector('.top .meter');(document.getElementById('acctSlot')||(meter?meter.parentNode:document.body)).appendChild(el);}
-    el.innerHTML='';const sp=document.createElement('span');sp.textContent='👤 '+u.email;const b=document.createElement('button');b.textContent=T('登出','Sign out');b.onclick=async()=>{try{await client.auth.signOut();}catch(e){}ls.del(PKEY);ls.del(OWNER);location.reload();};el.append(sp,b);}
-  function signedIn(u){user=u;window.SBUSER=u;box.hidden=true;showAccount(u);resolveUser(u);}
+    el.innerHTML='';const sp=document.createElement('span');sp.textContent='👤 '+u.email;const b=document.createElement('button');b.textContent=T('登出','Sign out');b.onclick=async()=>{try{await client.auth.signOut();}catch(e){}ls.del(PKEY);ls.del(OWNER);ls.del('ig-name');location.reload();};el.append(sp,b);}
+  function signedIn(u){user=u;window.SBUSER=u;const dn=u&&u.user_metadata&&u.user_metadata.display_name;if(dn)ls.set('ig-name',dn);box.hidden=true;showAccount(u);resolveUser(u);}
 
   if(!configured){
     // Cloud not set up yet: app still works with on-device progress.
@@ -73,17 +76,18 @@
     ls.set(KEEP,$a('#a-keep').checked?'1':'0');go.disabled=true;msg(T('处理中…','Working…'));
     try{
       if(mode==='in'){const {data,error}=await client.auth.signInWithPassword({email,password:pw});if(error)throw error;signedIn(data.user);}
-      else if(mode==='up'){const {data,error}=await client.auth.signUp({email,password:pw,options:{emailRedirectTo:location.origin+location.pathname}});if(error)throw error;
+      else if(mode==='up'){const {data,error}=await client.auth.signUp({email,password:pw,options:{emailRedirectTo:location.origin+location.pathname,data:{display_name:($a('#a-name').value||'').trim().slice(0,20)}}});if(($a('#a-name').value||'').trim())ls.set('ig-name',$a('#a-name').value.trim().slice(0,20));if(error)throw error;
         if(data.session)signedIn(data.user);else{setMode('in');msg(T('注册成功！请到 '+email+' 的邮箱点击确认链接，然后回来登录。','Account created! Click the confirmation link sent to '+email+', then come back and sign in.'),'ok');}}
       else if(mode==='forgot'){const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});if(error)throw error;msg(T('已发送。请到邮箱点击链接重设密码。','Sent. Click the link in your email to reset your password.'),'ok');}
       else if(mode==='reset'){const {data,error}=await client.auth.updateUser({password:pw});if(error)throw error;msg(T('密码已更新。','Password updated.'),'ok');signedIn(data.user);}
     }catch(err){msg(zh(err),'err');}finally{go.disabled=false;}});
-  box.querySelectorAll('[data-l]').forEach(x=>x.onclick=()=>{lang=x.dataset.l;ls.set('ig-lang',lang);if(typeof window.setLang==='function')window.setLang(lang);const k=$a('#a-keep').checked,em=$a('#a-email').value,md=mode;drawForm();wire();$a('#a-keep').checked=k;$a('#a-email').value=em;setMode(md);});
+  box.querySelectorAll('[data-l]').forEach(x=>x.onclick=()=>{lang=x.dataset.l;ls.set('ig-lang',lang);if(typeof window.setLang==='function')window.setLang(lang);const k=$a('#a-keep').checked,em=$a('#a-email').value,nm=$a('#a-name').value,md=mode;drawForm();wire();$a('#a-keep').checked=k;$a('#a-email').value=em;$a('#a-name').value=nm;setMode(md);});
   }
   wire();
   client.auth.onAuthStateChange((ev,session)=>{if(ev==='PASSWORD_RECOVERY'){box.hidden=false;setMode('reset');}});
   client.auth.getSession().then(({data})=>{const s=data&&data.session;if(s&&s.user)signedIn(s.user);else{box.hidden=false;setMode('in');}}).catch(()=>{box.hidden=false;});
 
+  window.setCloudName=async n=>{try{if(user)await client.auth.updateUser({data:{display_name:n}});}catch(e){}};
   window.CLOUD={
     async load(){const u=await userReady;if(!u)throw new Error('offline');
       const fresh=ls.get(OWNER)!==u.id;ls.set(OWNER,u.id);
