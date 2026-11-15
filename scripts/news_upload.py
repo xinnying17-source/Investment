@@ -34,7 +34,7 @@ def raw_items():
     """Headlines only (no AI): top items per bucket from candidates.json, English title + link."""
     cand = json.load(open(os.path.join(WORK, 'candidates.json'), encoding='utf-8'))
     n = CFG['max_items_per_bucket']; per = {}; out = []
-    day = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).date().isoformat()  # Malaysia date
+    day = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=8)).date().isoformat()  # Malaysia date
     for it in cand['items']:
         k = (it['country'], it['industry'])
         if per.get(k, 0) >= n:
@@ -50,16 +50,18 @@ def raw_items():
     return out
 
 def main_raw():
+    if not os.environ.get('INGEST_KEY'):
+        sys.exit('INGEST_KEY secret is missing: add it under Settings → Secrets and variables → Actions (value = the Supabase news write key).')
     items = raw_items()
     # ignore-duplicates: never overwrite an item that already has AI summaries
     print('raw items', len(items), call('POST', 'news_items?on_conflict=id', items, 'resolution=ignore-duplicates,return=minimal')[0])
     mk = json.load(open(os.path.join(WORK, 'markets.json'), encoding='utf-8')) if os.path.exists(os.path.join(WORK, 'markets.json')) else {}
     if mk:
-        rows = [{'sym': k, 'name_zh': v['zh'], 'name_en': v['en'], 'x': v['x'], 'v': v['v'], 'src': v.get('src', ''), 'updated_at': datetime.datetime.utcnow().isoformat() + 'Z'} for k, v in mk.items()]
+        rows = [{'sym': k, 'name_zh': v['zh'], 'name_en': v['en'], 'x': v['x'], 'v': v['v'], 'src': v.get('src', ''), 'updated_at': datetime.datetime.now(datetime.timezone.utc).isoformat()} for k, v in mk.items()]
         print('markets', call('POST', 'market_snap?on_conflict=sym', rows, 'resolution=merge-duplicates,return=minimal')[0])
     cutoff = (datetime.date.today() - datetime.timedelta(days=CFG['keep_days'])).isoformat()
     print('cleanup', call('DELETE', 'news_items?day=lt.' + cutoff, prefer='return=minimal')[0])
-    meta = {'k': 'last_run', 'v': {'at': datetime.datetime.utcnow().isoformat() + 'Z', 'items': len(items), 'status': 'ok'}}
+    meta = {'k': 'last_run', 'v': {'at': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'items': len(items), 'status': 'ok'}}
     print('meta', call('POST', 'news_meta?on_conflict=k', [meta], 'resolution=merge-duplicates,return=minimal')[0])
 
 def main():
@@ -78,7 +80,7 @@ def main():
             call('PATCH', 'news_items?id=eq.' + it['id'], fields, 'return=minimal')
         print('enriched', len(items))
     if cur.get('stories'):
-        st = [{**s, 'updated_at': datetime.datetime.utcnow().isoformat() + 'Z'} for s in cur['stories']]
+        st = [{**s, 'updated_at': datetime.datetime.now(datetime.timezone.utc).isoformat()} for s in cur['stories']]
         print('stories', call('POST', 'news_story?on_conflict=key', st, 'resolution=merge-duplicates,return=minimal')[0])
     print('done')
 

@@ -4,7 +4,7 @@ headlines, and on Sundays adds this week's developments to the storylines, groun
 
 Needs secrets GEMINI_API_KEY and INGEST_KEY. Optional variable GEMINI_MODEL. Does nothing when GEMINI_API_KEY is empty.
 """
-import json, os, sys, re, datetime, urllib.request, urllib.error
+import json, os, sys, re, time, datetime, urllib.request, urllib.error
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 conf = open(os.path.join(ROOT, 'docs', 'config.js'), encoding='utf-8').read()
 URL = re.search(r"SUPABASE_URL:\s*'([^']+)'", conf).group(1)
@@ -21,24 +21,38 @@ def sb(method, path, body=None, prefer=None):
         t = r.read().decode()
         return json.loads(t) if t.strip().startswith(('[', '{')) else t
 
+def _call(model, gc, prompt, key):
+    body = {'contents': [{'parts': [{'text': prompt}]}], 'generationConfig': gc}
+    req = urllib.request.Request(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent', data=json.dumps(body).encode(),
+                                 headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
+    with urllib.request.urlopen(req, timeout=150) as r:
+        out = json.load(r)
+    return json.loads(out['candidates'][0]['content']['parts'][0]['text'])
+
 def gemini(prompt):
+    """Thinking off (fast). Per model: one retry on timeout/overload; if thinkingBudget is rejected, retry without it; otherwise move to the next model."""
     key = os.environ['GEMINI_API_KEY']
-    models = [m for m in [os.environ.get('GEMINI_MODEL'), 'gemini-flash-latest', 'gemini-2.5-flash'] if m]
-    body = {'contents': [{'parts': [{'text': prompt}]}], 'generationConfig': {'responseMimeType': 'application/json', 'temperature': 0.3}}
-    last = None
-    for m in models:
-        try:
-            req = urllib.request.Request(f'https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent', data=json.dumps(body).encode(),
-                                         headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
-            with urllib.request.urlopen(req, timeout=120) as r:
-                out = json.load(r)
-            text = out['candidates'][0]['content']['parts'][0]['text']
-            return json.loads(text)
-        except urllib.error.HTTPError as e:
-            last = f'{m}: HTTP {e.code} {e.read().decode()[:200]}'
-            if e.code in (400, 404): continue
-            raise
-    raise RuntimeError('no Gemini model worked: ' + str(last))
+    models = [m for m in [os.environ.get('GEMINI_MODEL'), 'gemini-2.5-flash', 'gemini-flash-latest'] if m]
+    base = {'responseMimeType': 'application/json', 'temperature': 0.3}
+    errors = []
+    for m in dict.fromkeys(models):
+        gc = dict(base, thinkingConfig={'thinkingBudget': 0})
+        for attempt in range(3):
+            try:
+                return _call(m, gc, prompt, key)
+            except urllib.error.HTTPError as e:
+                msg = f'{m}: HTTP {e.code} {e.read().decode()[:160]}'; errors.append(msg)
+                if e.code == 400 and 'thinking' in msg.lower() and 'thinkingConfig' in gc:
+                    gc = dict(base); continue
+                if e.code in (429, 500, 503) and attempt == 0:
+                    time.sleep(20); continue
+                break
+            except (TimeoutError, urllib.error.URLError, json.JSONDecodeError, KeyError, IndexError) as e:
+                errors.append(f'{m}: {type(e).__name__}')
+                if attempt == 0:
+                    continue
+                break
+    raise RuntimeError('; '.join(errors[-3:]))
 
 RULES = """Rules: write for a Malaysian beginner investor. Simplified Chinese must be natural everyday language; explain any jargon in brackets.
 Only use facts stated in the headline/source given; do not invent numbers, dates or details; if the headline is an opinion or forecast, say so.
@@ -106,11 +120,17 @@ Summaries:
 def main():
     if not os.environ.get('GEMINI_API_KEY'):
         print('GEMINI_API_KEY not set: free summariser is off (the Claude task handles summaries).'); return
+    if not os.environ.get('INGEST_KEY'):
+        print('::error::INGEST_KEY secret is missing, so summaries cannot be saved. Add it under Settings → Secrets and variables → Actions.'); sys.exit(1)
     myt = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=8)
     today = myt.date().isoformat()
-    summaries(today)
-    if myt.weekday() == 6:  # Sunday in Malaysia
-        storylines(today)
+    try:
+        summaries(today)
+        if myt.weekday() == 6:  # Sunday in Malaysia
+            storylines(today)
+    except RuntimeError as e:
+        # Gemini slow or unavailable today: headlines are still shown, so warn instead of failing the run
+        print('::warning::Gemini unavailable today, summaries skipped: ' + str(e)[:300])
 
 if __name__ == '__main__':
     main()
