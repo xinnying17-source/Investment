@@ -1,7 +1,7 @@
 """Fetch candidate headlines (last ~24h) for every country/industry bucket, plus 10 days of market closes.
 
 Writes news/_work/candidates.json and news/_work/markets.json (git-ignored scratch).
-Sources: Google News RSS search (headlines + links only), Stooq daily CSV, Yahoo chart API as fallback.
+Sources: Google News RSS search (headlines + links only), Yahoo chart API with Stooq as fallback.
 Run:  python3 scripts/news_fetch.py
 """
 import json, os, sys, time, hashlib, urllib.parse, urllib.request, csv, io
@@ -30,6 +30,14 @@ def rss(country, q):
 
 def market(m):
     try:
+        raw = json.loads(get('https://query1.finance.yahoo.com/v8/finance/chart/' + urllib.parse.quote(m['yahoo']) + '?range=1mo&interval=1d'))
+        r = raw['chart']['result'][0]; ts = r['timestamp']; cl = r['indicators']['quote'][0]['close']
+        pts = [(time.strftime('%Y-%m-%d', time.gmtime(t)), c) for t, c in zip(ts, cl) if c is not None][-10:]
+        if len(pts) >= 2:
+            return {'x': [p[0] for p in pts], 'v': [round(p[1], 4) for p in pts], 'src': 'Yahoo Finance'}
+    except Exception as e:
+        print('yahoo fail', m['sym'], e, file=sys.stderr)
+    try:
         raw = get('https://stooq.com/q/d/l/?' + urllib.parse.urlencode({'s': m['stooq'], 'i': 'd'})).decode()
         rows = [r for r in csv.DictReader(io.StringIO(raw)) if r.get('Close') not in (None, '', 'null')]
         if len(rows) >= 2:
@@ -37,13 +45,6 @@ def market(m):
             return {'x': [r['Date'] for r in rows], 'v': [round(float(r['Close']), 4) for r in rows], 'src': 'Stooq'}
     except Exception as e:
         print('stooq fail', m['sym'], e, file=sys.stderr)
-    try:
-        raw = json.loads(get('https://query1.finance.yahoo.com/v8/finance/chart/' + urllib.parse.quote(m['yahoo']) + '?range=1mo&interval=1d'))
-        r = raw['chart']['result'][0]; ts = r['timestamp']; cl = r['indicators']['quote'][0]['close']
-        pts = [(time.strftime('%Y-%m-%d', time.gmtime(t)), c) for t, c in zip(ts, cl) if c is not None][-10:]
-        return {'x': [p[0] for p in pts], 'v': [round(p[1], 4) for p in pts], 'src': 'Yahoo Finance'}
-    except Exception as e:
-        print('yahoo fail', m['sym'], e, file=sys.stderr)
     return None
 
 def main():
