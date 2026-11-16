@@ -28,10 +28,14 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - name: Install article-reading tools
+        run: pip install -q trafilatura googlenewsdecoder
       - name: TEMP probe which sources give full article text (manual runs only)
         if: github.event_name == 'workflow_dispatch'
         continue-on-error: true
-        run: pip install -q trafilatura googlenewsdecoder && python3 scripts/probe_sources.py
+        env:
+          INGEST_KEY: ${{ secrets.INGEST_KEY }}
+        run: python3 scripts/probe_sources.py
       - name: Fetch headlines and market prices
         id: fetch
         run: python3 scripts/news_fetch.py
@@ -40,6 +44,13 @@ jobs:
         env:
           INGEST_KEY: ${{ secrets.INGEST_KEY }}
         run: python3 scripts/news_upload.py --raw
+      - name: Deep analysis of the day's main events (full article, cited and checked)
+        if: always() && steps.upload.outcome == 'success'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          INGEST_KEY: ${{ secrets.INGEST_KEY }}
+        run: python3 scripts/news_deep.py
       - name: Fact-checked Chinese/English summaries with Gemini (every headline without one)
         if: always() && steps.upload.outcome == 'success'
         env:

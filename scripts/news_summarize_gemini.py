@@ -254,10 +254,15 @@ def summaries(today):
     since7 = (datetime.date.fromisoformat(today) - datetime.timedelta(days=7)).isoformat()
 
     # 1) everything recent without a Chinese summary
-    todo = sb('GET', f'news_items?select=id,title_en,source&day=gte.{since2}&summary_zh=is.null&order=published_at.desc')
+    # deep-analysed items (and their duplicates) are handled by news_deep.py; skip them here
+    try:
+        sb('GET', 'news_items?select=depth&limit=1'); dep = '&depth=in.(brief,nodeep)'
+    except Exception:
+        dep = ''  # news_v2.sql not applied yet
+    todo = sb('GET', f'news_items?select=id,title_en,source&day=gte.{since2}&summary_zh=is.null{dep}&order=published_at.desc')
     todo = [t for t in todo if meta['failed'].get(t['id'], 0) < MAX_FAIL and t['id'] not in skip][:MAX_NEW]
     # 2) older summaries that were never fact-checked by this pipeline
-    old = sb('GET', f'news_items?select=id,title_en,source,summary_zh&day=gte.{since7}&summary_zh=not.is.null')
+    old = sb('GET', f'news_items?select=id,title_en,source,summary_zh&day=gte.{since7}&summary_zh=not.is.null{dep}')
     recheck = [t for t in old if t['id'] not in verified][:MAX_RECHECK]
     print(f'{len(todo)} to summarise, {len(recheck)} older summaries to fact-check')
 

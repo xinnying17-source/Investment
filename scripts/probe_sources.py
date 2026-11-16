@@ -66,6 +66,7 @@ for name, url in FEEDS.items():
     ok = sum(1 for n in lens if n > 1200)
     rows.append((name, f'{len(its)} items', f'full text {ok}/{len(lens)}', 'chars ' + ','.join(map(str, lens))))
 for r in rows: print(' | '.join(r))
+RESULT = {'feeds': [list(r) for r in rows], 'gnews': []}
 
 # Google News links -> publisher URL
 print('\n--- Google News decode test')
@@ -79,6 +80,14 @@ try:
         except Exception as e:
             u = None
         n, info = article(u) if u else (0, 'decode failed')
-        print(f'{n:6d} chars | {(u or "-")[:80]} | {t[:60]}')
+        print(f'{n:6d} chars | {(u or "-")[:80]} | {t[:60]}'); RESULT['gnews'].append([n, (u or '-')[:120], t[:80]])
 except Exception as e:
     print('decoder unavailable:', e)
+
+# save to Supabase (news_meta k='probe') so results are readable without the Actions log
+import os, re as _re
+conf = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'docs', 'config.js'), encoding='utf-8').read()
+U = _re.search(r"SUPABASE_URL:\s*'([^']+)'", conf).group(1); K = _re.search(r"SUPABASE_ANON_KEY:\s*'([^']+)'", conf).group(1)
+req = urllib.request.Request(U + '/rest/v1/news_meta?on_conflict=k', method='POST', data=json.dumps([{'k': 'probe', 'v': RESULT}]).encode(),
+      headers={'apikey': K, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal', 'x-ingest-key': os.environ.get('INGEST_KEY', '')})
+print('saved probe result', urllib.request.urlopen(req, timeout=20).status)
