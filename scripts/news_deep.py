@@ -16,7 +16,7 @@ Needs INGEST_KEY and GEMINI_API_KEY. Writes into news_items (columns from supaba
 """
 import json, os, re, sys, time, datetime, urllib.request, urllib.parse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from news_summarize_gemini import sb, gemini, nums, words, WORDNUM, MONTHS  # shared helpers
+from news_summarize_gemini import sb, gemini, nums, words, WORDNUM, MONTHS, calls_left, LIMIT  # shared helpers
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORK = os.path.join(ROOT, 'news', '_work')
 STOCKS = {s['y']: s for s in json.load(open(os.path.join(ROOT, 'news', 'stocks.json'), encoding='utf-8'))['stocks']}
@@ -154,7 +154,10 @@ def main():
         done_today = sb('GET', f'news_items?select=id&day=eq.{today}&depth=eq.deep')
     except Exception as e:
         print('::warning::news_v2.sql not applied yet (no depth column?):', str(e)[:200]); return
-    room = min(PER_RUN, PER_DAY - len(done_today))
+    # deep analysis gets first claim on the daily budget, but leaves ~1/4 of it for the short summaries
+    reserve = max(2, LIMIT // 4)
+    room = min(PER_RUN, PER_DAY - len(done_today), max(0, (calls_left() - reserve) // 2))
+    if room <= 0: print(f'Gemini budget kept for short summaries ({calls_left()} calls left today)'); return
     if room <= 0: print('daily deep-analysis cap reached'); return
     data = json.load(open(os.path.join(WORK, 'candidates.json'), encoding='utf-8'))
     direct = data.get('direct') or []

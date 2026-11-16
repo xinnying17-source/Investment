@@ -43,6 +43,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GEMINI_DAILY_LIMIT: ${{ vars.GEMINI_DAILY_LIMIT }}
           INGEST_KEY: ${{ secrets.INGEST_KEY }}
         run: python3 scripts/news_deep.py
       - name: Fact-checked Chinese/English summaries with Gemini (every headline without one)
@@ -50,6 +51,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GEMINI_DAILY_LIMIT: ${{ vars.GEMINI_DAILY_LIMIT }}
           INGEST_KEY: ${{ secrets.INGEST_KEY }}
         run: python3 scripts/news_summarize_gemini.py
       - uses: actions/setup-node@v5
