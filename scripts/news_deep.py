@@ -31,26 +31,6 @@ def http(url, t=20):
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=t) as r:
         return r.read().decode('utf-8', 'ignore'), r.geturl()
 
-def publisher_url(u):
-    if 'news.google.com' not in u: return u
-    try:
-        from googlenewsdecoder import gnewsdecoder
-        d = gnewsdecoder(u, interval=1)
-        return d.get('decoded_url') if d.get('status') else None
-    except Exception:
-        return None
-
-def full_text(url):
-    import trafilatura
-    u = publisher_url(url)
-    if not u: return None, None
-    try:
-        html, final = http(u)
-    except Exception:
-        return None, u
-    txt = trafilatura.extract(html, favor_precision=True, include_comments=False, include_tables=False) or ''
-    return (txt if len(txt) >= 900 else None), final
-
 SPLIT = re.compile(r'(?<=[.!?])["”’)]?\s+(?=[A-Z0-9“"(])')
 def sentences(text):
     out = []
@@ -138,7 +118,7 @@ STRICT RULES:
 - 'stocks': only symbols from the ALLOWED STOCKS list, only when the story clearly concerns that company or its sector; effect is up/down/mixed/watch, with a one-sentence reason. Empty list if none fit.
 - 'keywords': 4-8 lowercase English names/topics for linking related news over time (companies, people, institutions, themes like "opr", "palm oil", "data centre")."""
 
-def write(src_sents, event, feedback=None):
+def write(src_sents, event, industries, feedback=None):
     allowed = '\n'.join(f"{y}: {s['name']} ({s['sector']})" for y, s in STOCKS.items())
     fb = ('\nYOUR PREVIOUS VERSION FAILED THE CHECKER. Fix these problems (drop a claim rather than guess):\n' + '\n'.join('- ' + p for p in feedback[:25])) if feedback else ''
     prompt = f"""{RULES}{fb}
@@ -152,7 +132,7 @@ Return JSON:
 "points":[{{"zh":"key fact or number","en":"...","c":[ids]}}],          // 3-6
 "meaning_zh":"3-5 sentences","meaning_en":"...",
 "stocks":[{{"y":"symbol from list","effect":"up|down|mixed|watch","zh":"reason","en":"reason"}}],
-"keywords":["..."],"irrelevant":false}}   // irrelevant=true if this is not about business/markets/economy
+"keywords":["..."],"industry":"one of {industries}","irrelevant":false}}   // irrelevant=true if this is not about business/markets/economy
 SOURCE SENTENCES:
 """ + '\n'.join(json.dumps({'s': i, 't': t}, ensure_ascii=False) for i, t in src_sents)
     return gemini(prompt, 0.2)
@@ -176,64 +156,76 @@ def main():
         print('::warning::news_v2.sql not applied yet (no depth column?):', str(e)[:200]); return
     room = min(PER_RUN, PER_DAY - len(done_today))
     if room <= 0: print('daily deep-analysis cap reached'); return
-    cands = json.load(open(os.path.join(WORK, 'candidates.json'), encoding='utf-8'))['items']
-    rows = {r['id']: r for r in sb('GET', f'news_items?select=id,depth,country,industry&day=gte.{(myt.date() - datetime.timedelta(days=1)).isoformat()}')}
-    cands = [c for c in cands if c['id'] in rows]  # only headlines we keep (not removed as off-topic)
-    for c in cands: c['title'] = c['title'].rsplit(' - ', 1)[0] if c.get('source') and c['title'].endswith(' - ' + c['source']) else c['title']
-    groups = cluster(cands)
-    todo = [g for g in groups if not any(rows[i['id']]['depth'] in ('deep', 'nodeep') for i in g['items'])]
-    todo.sort(key=lambda g: (-len({i.get('source') for i in g['items']}), 0 if g['items'][0]['country'] == 'my' else 1))
-    print(f'{len(groups)} events from {len(cands)} headlines; {len(todo)} not analysed yet; analysing up to {room}')
+    data = json.load(open(os.path.join(WORK, 'candidates.json'), encoding='utf-8'))
+    direct = data.get('direct') or []
+    heads = data['items']  # Google News headlines: used to judge importance and to hide duplicates
+    for c in heads: c['title'] = c['title'].rsplit(' - ', 1)[0] if c.get('source') and c['title'].endswith(' - ' + c['source']) else c['title']
+    known = {r['id']: r['depth'] for r in sb('GET', 'news_items?select=id,depth&id=in.(' + ','.join(d['id'] for d in direct) + ')')} if direct else {}
+    groups = cluster([dict(d, direct=True) for d in direct] + [dict(h, direct=False) for h in heads])
+    events = []
+    for g in groups:
+        ds = [i for i in g['items'] if i['direct']]
+        if not ds or any(known.get(i['id']) in ('deep', 'nodeep', 'dup') for i in ds): continue
+        outlets = {i.get('source') for i in g['items']}
+        events.append((len(outlets), 1 if ds[0]['country'] == 'my' else 0, g, ds))
+    events.sort(key=lambda e: (-e[0], -e[1]))
+    print(f'{len(direct)} full-text articles, {len(heads)} headlines -> {len(events)} new events; analysing up to {room}')
+    inds = {c: [i['key'] for i in v] for c, v in json.load(open(os.path.join(ROOT, 'news', 'buckets.json'), encoding='utf-8'))['industries'].items()}
     since = (myt.date() - datetime.timedelta(days=180)).isoformat()
     analysed = 0
-    for g in todo:
+    for score, _, g, ds in events:
         if analysed >= room: break
-        texts, srcs = [], []
-        for it in g['items'][:4]:
-            txt, final = full_text(it['url'])
-            if txt:
-                texts.append(txt); srcs.append({'outlet': it.get('source', ''), 'title': it['title'], 'url': final or it['url']})
-            if len(texts) >= 3: break
+        lead = ds[0]; texts, srcs = [], []
+        for it in ds[:3]:
+            try:
+                html_, final = http(it['url']); import trafilatura
+                txt = trafilatura.extract(html_, favor_precision=True) or ''
+            except Exception:
+                txt, final = '', it['url']
+            if len(txt) >= 900:
+                texts.append(txt); srcs.append({'outlet': it.get('source', ''), 'title': it['title'], 'url': final})
             time.sleep(0.5)
-        main_id = g['items'][0]['id']
+        base = {'id': lead['id'], 'day': today, 'country': lead['country'], 'industry': inds[lead['country']][0],
+                'published_at': lead.get('published'), 'source': lead.get('source', ''), 'url': lead['url'], 'title_en': lead['title']}
         if not texts:
-            sb('PATCH', 'news_items?id=eq.' + main_id, {'depth': 'nodeep'}, 'return=minimal')  # no full text: keep short summary
-            print('no full text:', g['items'][0]['title'][:70]); continue
+            sb('POST', 'news_items?on_conflict=id', [dict(base, depth='nodeep')], 'resolution=merge-duplicates,return=minimal'); continue
         sid, owner, n = {}, {}, 0
         per = MAX_SENT // len(texts)
         for si, t in enumerate(texts):
-            for s in sentences(t)[:per]:
-                n += 1; sid[n] = s; owner[n] = si
+            for x in sentences(t)[:per]:
+                n += 1; sid[n] = x; owner[n] = si
         try:
-            res = write(list(sid.items()), g)
+            res = write(list(sid.items()), g, inds[lead['country']])
             if res.get('irrelevant'):
-                sb('PATCH', 'news_items?id=in.(' + ','.join(i['id'] for i in g['items']) + ')', {'depth': 'nodeep'}, 'return=minimal'); continue
+                sb('POST', 'news_items?on_conflict=id', [dict(base, depth='nodeep')], 'resolution=merge-duplicates,return=minimal')
+                print('not business news, skipped:', lead['title'][:60]); continue
             out, probs, dropped = check(res, sid)
             if dropped > 0.25 or len(out['article_zh']) < 2:
-                print(f'rewrite ({dropped:.0%} failed): {g["items"][0]["title"][:60]}')
-                res = write(list(sid.items()), g, feedback=probs)
+                print(f'rewrite ({dropped:.0%} failed): {lead["title"][:60]}')
+                res = write(list(sid.items()), g, inds[lead['country']], feedback=probs)
                 out, probs, dropped = check(res, sid)
         except RuntimeError as e:
             print('::warning::Gemini unavailable, stopping this run:', str(e)[:200]); break
         if dropped > 0.25 or len(out['article_zh']) < 2 or len(out['article_en']) < 2:
-            sb('PATCH', 'news_items?id=eq.' + main_id, {'depth': 'nodeep'}, 'return=minimal')
-            print(f'rejected after rewrite ({dropped:.0%} unsupported): {g["items"][0]["title"][:60]}'); continue
-        stocks = [{'y': s['y'], 'code': STOCKS[s['y']]['code'], 'name': STOCKS[s['y']]['name'], 'effect': s.get('effect') if s.get('effect') in ('up', 'down', 'mixed', 'watch') else 'watch',
-                   'zh': str(s.get('zh', ''))[:200], 'en': str(s.get('en', ''))[:200]} for s in (res.get('stocks') or []) if isinstance(s, dict) and s.get('y') in STOCKS][:6]
+            sb('POST', 'news_items?on_conflict=id', [dict(base, depth='nodeep')], 'resolution=merge-duplicates,return=minimal')
+            print(f'rejected after rewrite ({dropped:.0%} unsupported): {lead["title"][:60]}'); continue
+        stocks = [{'y': x['y'], 'code': STOCKS[x['y']]['code'], 'name': STOCKS[x['y']]['name'], 'effect': x.get('effect') if x.get('effect') in ('up', 'down', 'mixed', 'watch') else 'watch',
+                   'zh': str(x.get('zh', ''))[:200], 'en': str(x.get('en', ''))[:200]} for x in (res.get('stocks') or []) if isinstance(x, dict) and x.get('y') in STOCKS][:6]
         kws = sorted({str(k).lower().strip()[:40] for k in (res.get('keywords') or []) if str(k).strip()})[:8]
         for p in out['article_zh'] + out['article_en']:
             for ln in p: ln['src'] = sorted({owner[c] for c in ln['c']})
-        row = {'depth': 'deep', 'title_zh': str(res.get('title_zh', ''))[:200],
-               'summary_zh': ''.join(l['t'] for l in out['lead_zh']) or None, 'summary_en': ' '.join(l['t'] for l in out['lead_en']) or None,
-               'article_zh': json.dumps(out['article_zh'], ensure_ascii=False), 'article_en': json.dumps(out['article_en'], ensure_ascii=False),
-               'points': out['points'], 'meaning_zh': str(res.get('meaning_zh', ''))[:1500], 'meaning_en': str(res.get('meaning_en', ''))[:1500],
-               'impact_zh': None, 'impact_en': None, 'stocks': stocks, 'sources': srcs, 'keywords': kws,
-               'related': related_ids(kws, {i['id'] for i in g['items']}, since)}
-        sb('PATCH', 'news_items?id=eq.' + main_id, row, 'return=minimal')
-        dups = [i['id'] for i in g['items'][1:]]
+        row = dict(base, depth='deep', industry=res.get('industry') if res.get('industry') in inds[lead['country']] else base['industry'],
+                   title_zh=str(res.get('title_zh', ''))[:200],
+                   summary_zh=''.join(l['t'] for l in out['lead_zh']) or None, summary_en=' '.join(l['t'] for l in out['lead_en']) or None,
+                   article_zh=json.dumps(out['article_zh'], ensure_ascii=False), article_en=json.dumps(out['article_en'], ensure_ascii=False),
+                   points=out['points'], meaning_zh=str(res.get('meaning_zh', ''))[:1500], meaning_en=str(res.get('meaning_en', ''))[:1500],
+                   stocks=stocks, sources=srcs, keywords=kws, tags=[],
+                   related=related_ids(kws, {i['id'] for i in g['items']}, since))
+        sb('POST', 'news_items?on_conflict=id', [row], 'resolution=merge-duplicates,return=minimal')
+        dups = [i['id'] for i in g['items'] if i['id'] != lead['id']]
         if dups: sb('PATCH', 'news_items?id=in.(' + ','.join(dups) + ')', {'depth': 'dup'}, 'return=minimal')
         analysed += 1
-        print(f'deep ✓ {len(texts)} source(s), {sum(len(p) for p in out["article_zh"])} zh sentences, {len(probs)} removed, {len(stocks)} stocks: {g["items"][0]["title"][:60]}')
+        print(f'deep ✓ [{score} outlets] {len(texts)} article(s), {sum(len(p) for p in out["article_zh"])} zh sentences, {len(probs)} removed, {len(stocks)} stocks: {lead["title"][:60]}')
     print(f'analysed {analysed} events')
 
 if __name__ == '__main__':

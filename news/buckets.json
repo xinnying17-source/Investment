@@ -1,7 +1,20 @@
 {
   "keep_days": 7,
+  "keep_days_deep": 180,
   "max_items_per_bucket": 3,
   "max_items_per_bucket_day": 6,
+  "direct_feeds": [
+    {"name": "Malay Mail", "country": "my", "url": "https://www.malaymail.com/feed/rss/money"},
+    {"name": "Free Malaysia Today", "country": "my", "url": "https://www.freemalaysiatoday.com/category/category/business/feed/"},
+    {"name": "Malaysiakini", "country": "my", "url": "https://www.malaysiakini.com/rss/en/news.rss"},
+    {"name": "CNA", "country": "global", "url": "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml&category=6936"},
+    {"name": "CNBC", "country": "global", "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html"},
+    {"name": "CNBC", "country": "global", "url": "https://www.cnbc.com/id/20910258/device/rss/rss.html"},
+    {"name": "CNBC", "country": "global", "url": "https://www.cnbc.com/id/15839069/device/rss/rss.html"},
+    {"name": "BBC", "country": "global", "url": "https://feeds.bbci.co.uk/news/business/rss.xml"},
+    {"name": "The Guardian", "country": "global", "url": "https://www.theguardian.com/uk/business/rss"},
+    {"name": "US Federal Reserve", "country": "global", "url": "https://www.federalreserve.gov/feeds/press_all.xml"}
+  ],
   "countries": {
     "my": {"zh": "马来西亚", "en": "Malaysia", "flag": "🇲🇾", "rss": {"hl": "en-MY", "gl": "MY", "ceid": "MY:en"}},
     "global": {"zh": "全球", "en": "Global", "flag": "🌍", "rss": {"hl": "en-US", "gl": "US", "ceid": "US:en"}}
