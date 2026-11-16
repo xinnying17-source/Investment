@@ -509,6 +509,32 @@ html[lang="en"] h1,html[lang="en"] h2,html[lang="en"] h3{letter-spacing:0;font-w
 /* news refresh */
 .nhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .nrefresh{flex:none;white-space:nowrap}
+/* deep news */
+.ncard.deep{cursor:pointer;border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.ndeep{font-size:12px;font-weight:700;color:var(--accent);background:var(--b-tools-soft);border-radius:999px;padding:2px 9px}
+.nmore{color:var(--accent)}
+.nstk{display:flex;flex-wrap:wrap;gap:6px}
+.stk{font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:2px 9px;background:var(--surface2);font-weight:600;white-space:nowrap}
+.stk small{color:var(--muted);font-weight:500}
+.artview{position:fixed;inset:0;z-index:58;background:var(--bg);overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,0px)}
+.avbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top,0px)) 16px 10px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line);color:var(--muted);font-size:13px}
+.avbar .iconbtn{margin:0}
+.avbody{max-width:720px;margin:0 auto;padding:18px 16px 40px;display:flex;flex-direction:column;gap:16px}
+.avbody h1{font-family:var(--body);font-weight:700;font-size:clamp(22px,5vw,28px);line-height:1.35}
+.aven{color:var(--muted);font-size:13.5px;margin-top:-8px}
+.avlead{font-size:17px;font-weight:500;background:var(--b-tools-soft);border-radius:14px;padding:12px 14px}
+.avart p{font-size:16.5px;line-height:1.85;margin:0 0 14px}
+.avart sup{color:var(--accent);font-size:10px;margin-left:1px}
+.avbox{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.avbox h3{font-family:var(--body);font-weight:700;font-size:16px}
+.avbox ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.avbox.mean{background:var(--b-money-soft)}
+.avstk{display:flex;flex-direction:column;gap:2px;padding:8px 0;border-top:1px dashed var(--line)}
+.avstk:first-of-type{border-top:0}
+.avstk span{font-size:14px;color:var(--muted)}
+.avsrc{margin:0;padding-left:18px;font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+.avtl li{margin-bottom:6px}
+body.noscroll{overflow:hidden}
 /* bookmarks & relearn */
 .chip .mk{font-size:12px;margin-left:2px}
 .chip:not(.marked) .mk{display:none}
@@ -2140,6 +2166,30 @@ function nGet(path){const c=window.APP_CONFIG;const k='q:'+path;const hit=newsCa
  const tok=window.SB?window.SB.auth.getSession().then(({data})=>data&&data.session&&data.session.access_token).catch(()=>null):Promise.resolve(null);
  return tok.then(t=>fetch(c.SUPABASE_URL+'/rest/v1/'+path,{headers:Object.assign({apikey:c.SUPABASE_ANON_KEY},t?{Authorization:'Bearer '+t}:{})})).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(d=>{newsCache[k]={t:Date.now(),d};return d;});}
 const dayStr=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const SEFF={up:'🟢',down:'🔴',mixed:'🟠',watch:'🟡'};
+function artText(it,lang){let a=it['article_'+lang]||it.article_zh||it.article_en;try{a=typeof a==='string'?JSON.parse(a):a;}catch(e){a=[];}return Array.isArray(a)?a:[];}
+function openArticle(id){let v=$('#artView');if(!v){v=document.createElement('div');v.id='artView';v.className='artview';v.setAttribute('role','dialog');v.setAttribute('aria-modal','true');document.body.appendChild(v);}
+ const show=it=>{window._nItems[it.id]=it;const lang=isEN()?'en':'zh',L=(f)=>it[f+'_'+lang]||it[f+'_zh']||it[f+'_en']||'';const srcs=it.sources||[];const multi=srcs.length>1;
+  const ind=((NEWS_I[it.country]||[]).find(i=>i[0]===it.industry)||['','📰','','']);
+  const paras=artText(it,lang).map(p=>'<p>'+p.map(l=>esc(l.t)+(multi&&l.src?'<sup>'+l.src.map(n=>n+1).join(',')+'</sup>':'')).join(isEN()?' ':'')+'</p>').join('');
+  v.innerHTML='<div class="avbar"><button class="iconbtn" id="avBack" aria-label="'+tr('返回','Back')+'">←</button><span>'+ind[1]+' '+(isEN()?ind[3]:ind[2])+' · '+esc(it.day||'')+'</span></div><div class="avbody">'+
+   '<h1>'+esc(L('title'))+'</h1>'+(isEN()||!it.title_en?'':'<p class="aven">'+esc(it.title_en)+'</p>')+
+   (L('summary')?'<p class="avlead">'+esc(L('summary'))+'</p>':'')+
+   ((it.points||[]).length?'<div class="avbox"><h3>🔢 '+tr('关键事实与数字','Key facts & numbers')+'</h3><ul>'+it.points.map(p=>'<li>'+esc(isEN()?p.en:p.zh)+'</li>').join('')+'</ul></div>':'')+
+   '<div class="avart">'+paras+'</div>'+
+   (L('meaning')?'<div class="avbox mean"><h3>💡 '+tr('这代表什么（AI 分析）','What it means (AI analysis)')+'</h3><p>'+esc(L('meaning'))+'</p></div>':'')+
+   ((it.stocks||[]).length?'<div class="avbox"><h3>📈 '+tr('可能受影响的股票','Stocks that may be affected')+'</h3>'+it.stocks.map(x=>'<div class="avstk"><b class="stk '+x.effect+'">'+(SEFF[x.effect]||'•')+' '+esc(x.name)+' <small>'+esc(x.code)+'</small></b><span>'+esc(isEN()?x.en:x.zh)+'</span></div>').join('')+'</div>':'')+
+   '<div id="avRel"></div>'+
+   '<div class="avbox"><h3>🔗 '+tr('来源','Sources')+'</h3><ol class="avsrc">'+(srcs.length?srcs:[{outlet:it.source,title:it.title_en,url:it.url}]).map(x=>'<li>'+esc(x.outlet||'')+' — <a href="'+esc(x.url)+'" target="_blank" rel="noopener">'+esc(x.title||'')+' ↗</a></li>').join('')+'</ol></div>'+
+   '<p class="note">'+tr('这篇由 AI 读完原文后用中文写成，每一句都标明出处并由程序核对过数字，没有出处的内容已删除。「这代表什么」是 AI 的分析，不是事实，也不是投资建议。','Written by AI after reading the original article(s); every sentence cites its source and numbers were checked by a program; anything without a source was removed. “What it means” is AI analysis, not fact and not investment advice.')+'</p></div>';
+  v.hidden=false;document.body.classList.add('noscroll');v.scrollTop=0;
+  $('#avBack').onclick=()=>{v.hidden=true;document.body.classList.remove('noscroll');};
+  const rel=(it.related||[]).filter(Boolean);
+  if(rel.length)nGet('news_items?select=id,day,title_zh,title_en,summary_zh,summary_en&id=in.('+rel.join(',')+')&order=day.desc').then(rs=>{const el=$('#avRel');if(!el||!rs.length)return;
+   el.innerHTML='<div class="avbox"><h3>🧵 '+tr('来龙去脉（相关旧闻）','The backstory (related earlier news)')+'</h3><ol class="tl avtl">'+rs.map(r=>'<li><small>'+esc(r.day)+'</small> <a href="#" data-rel="'+r.id+'">'+esc(isEN()?(r.title_en||r.title_zh):(r.title_zh||r.title_en))+'</a><br><span class="note">'+esc(isEN()?(r.summary_en||''):(r.summary_zh||r.summary_en||''))+'</span></li>').join('')+'</ol></div>';
+   el.querySelectorAll('[data-rel]').forEach(a=>a.onclick=e=>{e.preventDefault();openArticle(a.dataset.rel);});}).catch(()=>{});};
+ const hit=window._nItems&&window._nItems[id];if(hit&&hit.article_zh)return show(hit);
+ nGet('news_items?select=*&id=eq.'+id).then(r=>{if(r[0])show(r[0]);});}
 function renderNews(){const root=$('#newsRoot');if(!root)return;
  const c=window.APP_CONFIG;if(!c||!c.SUPABASE_URL||/YOUR-PROJECT/.test(c.SUPABASE_URL)){root.innerHTML='<div class="panel"><h2>'+tr('📰 财经新闻','📰 Financial news')+'</h2><p>'+tr('财经新闻需要每天连接外部资料，只在 App 版提供。','Financial news needs a daily connection to outside data, so it is only available in the App version.')+'</p><p><a href="https://xinnying17-source.github.io/Investment/#news" target="_blank" rel="noopener">'+tr('打开 App 版的财经新闻 ↗','Open financial news in the App ↗')+'</a></p></div>';return;}
  const inds=NEWS_I[newsC],from=dayStr(new Date(Date.now()-(newsRange==='today'?1:7)*864e5)),wk=dayStr(new Date(Date.now()-7*864e5));
@@ -2163,14 +2213,21 @@ function renderNews(){const root=$('#newsRoot');if(!root)return;
  }).catch(e=>{$('#nMeta').textContent=tr('暂时连不上新闻资料库：','Can’t reach the news database right now: ')+e.message;});
  nGet('news_items?select=*&country=eq.'+newsC+(newsI?'&industry=eq.'+newsI:'')+'&day=gte.'+from+'&order=published_at.desc&limit=80').then(items=>{
   const el=$('#nList');if(!items.length){el.innerHTML='<div class="panel"><p>'+(newsRange==='today'?tr('这个范围今天没有重要新闻。','No important news here today.')+' <button class="pill" data-nr2="week">'+tr('看过去 7 天','See the past 7 days')+'</button>':tr('过去 7 天没有这个行业的新闻。','No news for this industry in the past 7 days.'))+'</p></div>';const b=el.querySelector('[data-nr2]');if(b)b.onclick=()=>{newsRange='week';renderNews();};return;}
-  items.sort((x,y)=>x.day===y.day?((y.summary_zh?1:0)-(x.summary_zh?1:0)):(x.day<y.day?1:-1));
+  items=items.filter(i=>i.depth!=='dup');window._nItems=window._nItems||{};items.forEach(i=>{window._nItems[i.id]=i;});
+  const rank=i=>(i.depth==='deep'?2:0)+(i.summary_zh?1:0);
+  items.sort((x,y)=>x.day===y.day?(rank(y)-rank(x)):(x.day<y.day?1:-1));
   const top=items.map(i=>i.id+(i.summary_zh?'s':'')).join(',');if(window._nRefreshFrom!=null){const prev=window._nRefreshFrom.split(','),nn=items.filter(i=>!prev.includes(i.id+(i.summary_zh?'s':''))).length;const t=$('#toast');if(t){t.textContent=nn?tr('有 '+nn+' 条新内容','Updated '+nn+' item(s)'):tr('已经是最新的了 ✓','Already up to date ✓');t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),2200);}window._nRefreshFrom=null;}window._nTop=top;
   const rb=$('#nRefresh');if(rb){rb.disabled=false;rb.textContent='🔄 '+tr('刷新','Refresh');}
   let lastDay='';el.innerHTML=items.map(it=>{const ind=(NEWS_I[newsC].find(i=>i[0]===it.industry)||['','📰','','']);const dh=it.day!==lastDay?'<h3 class="nday">'+new Date(it.day+'T00:00:00').toLocaleDateString(isEN()?'en-MY':'zh-CN',{weekday:'short',month:'short',day:'numeric'})+'</h3>':'';lastDay=it.day;
    const m=it.chart_sym&&window._mk&&window._mk[it.chart_sym];
+   const deep=it.depth==='deep';
+   if(deep)return dh+'<article class="ncard deep" data-art="'+it.id+'" tabindex="0" role="button"><div class="ntop"><span class="ndeep">📖 '+tr('深度分析','In depth')+'</span><span class="nind1">'+ind[1]+' '+(isEN()?ind[3]:ind[2])+'</span></div><h3>'+esc(L(it,'title'))+'</h3>'+(L(it,'summary')?'<p>'+esc(L(it,'summary'))+'</p>':'')+
+    ((it.stocks||[]).length?'<div class="nstk">'+it.stocks.map(x=>'<span class="stk '+x.effect+'">'+(SEFF[x.effect]||'•')+' '+esc(x.name)+' <small>'+esc(x.code)+'</small></span>').join('')+'</div>':'')+
+    '<p class="nsrc">'+esc((it.sources||[]).map(x=>x.outlet).filter((v,i,a)=>a.indexOf(v)===i).join(' · ')||it.source||'')+' · <b class="nmore">'+tr('阅读全文分析 →','Read the full analysis →')+'</b></p></article>';
    return dh+'<article class="ncard"><div class="ntop"><span class="nind1">'+ind[1]+' '+(isEN()?ind[3]:ind[2])+'</span>'+(it.tags||[]).map(t=>'<span class="ntag '+t.k+'">'+(NTAG[t.k]||['•','',''])[0]+' '+esc(isEN()?(t.en||t.zh):(t.zh||t.en))+'</span>').join('')+'</div><h3>'+esc(L(it,'title'))+'</h3>'+(!isEN()&&!it.title_zh?'<p class="note">'+tr('英文原标题 · 中文摘要准备中（每小时更新）；若标题资料太少无法核实，就只保留原标题','Original headline')+'</p>':'')+(L(it,'summary')?'<p>'+esc(L(it,'summary'))+'</p>':'')+(L(it,'impact')?'<p class="nimp">📌 <b>'+tr('这对你意味着什么：','What it means for you: ')+'</b>'+esc(L(it,'impact'))+'</p>':'')+
    (m&&m.v&&m.v.length>1?'<div class="cbox">'+chartSVG({k:'line',x:m.x.map(d=>d.slice(5)),s:[[isEN()?m.name_en:m.name_zh,m.v,'var(--b-base)']],u:''})+'</div><p class="src">'+tr('图表：','Chart: ')+(isEN()?m.name_en:m.name_zh)+tr(' 最近收盘价（',' recent closes (')+(m.src||'')+')</p>':'')+
    '<p class="nsrc">'+esc(it.source||'')+' · <a href="'+esc(it.url)+'" target="_blank" rel="noopener">'+tr('阅读原文 ↗','Read the original ↗')+'</a></p></article>';}).join('');
+  el.querySelectorAll('[data-art]').forEach(c=>{c.onclick=()=>openArticle(c.dataset.art);c.onkeydown=e=>{if(e.key==='Enter')openArticle(c.dataset.art);};});
  }).catch(e=>{$('#nList').innerHTML='<p class="note">'+tr('载入新闻失败：','Couldn’t load news: ')+esc(e.message)+'</p>';const rb=$('#nRefresh');if(rb){rb.disabled=false;rb.textContent='🔄 '+tr('刷新','Refresh');}window._nRefreshFrom=null;});
  nGet('news_story?select=*&country=eq.'+newsC+(newsI?'&industry=eq.'+newsI:'')+'&order=updated_at.desc&limit=4').then(st=>{
   $('#nStory').innerHTML=st.length?'<div class="panel nstory"><h3>'+tr('🧵 来龙去脉（背景参考）','🧵 The backstory (for reference)')+'</h3>'+st.map(s=>{const pts=(isEN()?s.story_en:s.story_zh)||[];return '<h4>'+esc(L(s,'title'))+'</h4><ol class="tl">'+pts.map(p=>'<li><small>'+esc(p.d||'')+'</small> '+esc(p.t||'')+'</li>').join('')+'</ol>';}).join('')+'</div>':'';}).catch(()=>{});}
