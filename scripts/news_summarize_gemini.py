@@ -97,14 +97,15 @@ def gemini(prompt, temperature=0.2):
         gc = dict(base, thinkingConfig={'thinkingBudget': 0})
         for attempt in range(3):
             try:
-                budget()['calls'] += 1; _save_budget()
-                return _call(m, gc, prompt, key)
+                out = _call(m, gc, prompt, key)
+                budget()['calls'] += 1; _save_budget()  # only successful calls use the daily budget
+                return out
             except urllib.error.HTTPError as e:
                 msg = f'{m}: HTTP {e.code} {e.read().decode()[:120]}'; errors.append(msg)
                 if e.code == 429 and 'quota' in msg.lower():  # daily free quota used up: stop for today, no retries
                     budget()['quota_hit'] = True; _save_budget(); _DOWN = True
                     raise RuntimeError('Gemini daily quota reached; continuing tomorrow')
-                if e.code == 400 and 'thinking' in msg.lower() and 'thinkingConfig' in gc:
+                if e.code == 400 and 'thinkingConfig' in gc:  # some models reject thinkingBudget=0: retry without it
                     gc = dict(base); continue
                 if e.code in (429, 500, 503) and attempt < 2:
                     time.sleep(30 * (attempt + 1)); continue
