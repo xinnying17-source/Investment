@@ -28,6 +28,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - name: TEMP probe which sources give full article text (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        run: pip install -q trafilatura googlenewsdecoder && python3 scripts/probe_sources.py
       - name: Fetch headlines and market prices
         id: fetch
         run: python3 scripts/news_fetch.py
