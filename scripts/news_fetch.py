@@ -4,7 +4,7 @@ Writes news/_work/candidates.json and news/_work/markets.json (git-ignored scrat
 Sources: Google News RSS search (headlines + links only), Yahoo chart API with Stooq as fallback.
 Run:  python3 scripts/news_fetch.py
 """
-import json, os, sys, time, hashlib, urllib.parse, urllib.request, csv, io
+import json, os, re, html, sys, time, hashlib, urllib.parse, urllib.request, csv, io
 import xml.etree.ElementTree as ET
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CFG = json.load(open(os.path.join(ROOT, 'news', 'buckets.json'), encoding='utf-8'))
@@ -25,8 +25,18 @@ def rss(country, q):
         title = (it.findtext('title') or '').strip()
         src = it.find('source')
         out.append({'title': title, 'url': (it.findtext('link') or '').strip(), 'published': it.findtext('pubDate'),
-                    'source': src.text.strip() if src is not None and src.text else ''})
+                    'source': src.text.strip() if src is not None and src.text else '', 'related': related(it.findtext('description') or '', title)})
     return out[:15]
+
+def related(desc, title):
+    """Other outlets' headlines for the same story (Google News clusters them in the description). Used as extra facts."""
+    heads = [html.unescape(re.sub(r'<[^>]+>', '', h)).strip() for h in re.findall(r'<a [^>]*>(.*?)</a>', desc, re.S)]
+    srcs = [html.unescape(re.sub(r'<[^>]+>', '', f)).strip() for f in re.findall(r'<font[^>]*>(.*?)</font>', desc, re.S)]
+    out = []
+    for i, h in enumerate(heads):
+        if h and h.lower() not in title.lower():
+            out.append(h + (' - ' + srcs[i] if i < len(srcs) and srcs[i] else ''))
+    return out[:5]
 
 def market(m):
     try:

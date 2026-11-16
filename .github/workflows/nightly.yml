@@ -1,45 +1,61 @@
-# Free nightly job (no Claude usage): fetch headlines + market prices, upload them, run the smoke test.
-# Runs at 12:00 am Malaysia time. Needs the repository secret INGEST_KEY (the Supabase news write key).
+# Free news pipeline (no Claude usage).
+#  - Every hour, 7 am to 11 pm Malaysia time: fetch new headlines + market prices, upload them, and let Gemini write
+#    fact-checked bilingual summaries for every headline that has none.
+#  - 12:00 am Malaysia time (full run): the same, plus the smoke test, the health record for the Claude task,
+#    an issue if something failed, and Sunday storylines.
+# Needs repository secrets INGEST_KEY (Supabase news write key) and GEMINI_API_KEY.
 name: Nightly news & checks
 on:
   schedule:
-    - cron: '0 16 * * *'    # 12:00 am Malaysia time: fetch, upload, test
-    - cron: '30 17 * * *'   # 1:30 am Malaysia time: free Gemini summaries for anything still missing
+    - cron: '0 16 * * *'          # 12:00 am Malaysia time: full run
+    - cron: '7 23,0-15 * * *'     # hourly 7:07 am - 11:07 pm Malaysia time: news only
   workflow_dispatch: {}
 permissions:
   contents: read
   issues: write
   actions: write
+concurrency:
+  group: news-pipeline
+  cancel-in-progress: false
 jobs:
-  nightly:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 16 * * *'
+  news:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
+    env:
+      FULL_RUN: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '0 16 * * *' }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
       - name: Fetch headlines and market prices
         id: fetch
         run: python3 scripts/news_fetch.py
-      - name: Upload headlines and prices
+      - name: Upload new headlines and prices
         id: upload
         env:
           INGEST_KEY: ${{ secrets.INGEST_KEY }}
         run: python3 scripts/news_upload.py --raw
+      - name: Fact-checked Chinese/English summaries with Gemini (every headline without one)
+        if: always() && steps.upload.outcome == 'success'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          INGEST_KEY: ${{ secrets.INGEST_KEY }}
+        run: python3 scripts/news_summarize_gemini.py
+      - uses: actions/setup-node@v5
+        if: always() && env.FULL_RUN == 'true'
+        with:
+          node-version: '22'
       - name: Install test browser
-        if: always()
+        if: always() && env.FULL_RUN == 'true'
         run: npm install --no-save playwright@1.47.2 && npx playwright install --with-deps chromium
       - name: Smoke test (every lesson, view, language, simulator mode + live site)
         id: test
-        if: always()
+        if: always() && env.FULL_RUN == 'true'
         run: node tests/smoke.js --live
       - name: Record result for the Claude task
-        if: always()
+        if: always() && env.FULL_RUN == 'true'
         env:
           INGEST_KEY: ${{ secrets.INGEST_KEY }}
           FETCH: ${{ steps.fetch.outcome }}
@@ -47,8 +63,8 @@ jobs:
           TEST: ${{ steps.test.outcome }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: python3 scripts/report_health.py
-      - name: Open an issue when something failed
-        if: failure()
+      - name: Open an issue when the full run failed
+        if: failure() && env.FULL_RUN == 'true'
         uses: actions/github-script@v8
         with:
           script: |
@@ -59,24 +75,7 @@ jobs:
               body: `今晚的自动检查有步骤失败。\n\n详情：${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n凌晨 12:30 的 Claude 任务会读取这个结果并尝试修复。`
             });
       - name: Keep this scheduled workflow enabled (GitHub pauses idle repos after 60 days)
-        if: always()
+        if: always() && env.FULL_RUN == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/nightly.yml/enable" || true
-
-  summaries:
-    needs: [nightly]
-    if: always() && (github.event_name == 'workflow_dispatch' || github.event.schedule == '30 17 * * *')
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-      - name: Free summaries with Gemini (only for headlines still without one)
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
-          INGEST_KEY: ${{ secrets.INGEST_KEY }}
-        run: python3 scripts/news_summarize_gemini.py

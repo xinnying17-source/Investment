@@ -53,8 +53,27 @@ def main_raw():
     if not os.environ.get('INGEST_KEY'):
         sys.exit('INGEST_KEY secret is missing: add it under Settings → Secrets and variables → Actions (value = the Supabase news write key).')
     items = raw_items()
+    # Hourly runs: skip headlines removed as off-topic, and keep at most max_items_per_bucket_day per bucket per day
+    try:
+        st, body = call('GET', 'news_meta?k=eq.news_ai&select=v'); m = json.loads(body)
+        skip = set((m[0]['v'] or {}).get('skip', [])) if m else set()
+        st, body = call('GET', 'news_items?select=id,country,industry&day=eq.' + (items[0]['day'] if items else '1970-01-01'))
+        have = json.loads(body)
+    except Exception as e:
+        print('could not read existing items, uploading as is:', e); skip, have = set(), []
+    known = {h['id'] for h in have}; cnt = {}
+    for h in have: cnt[(h['country'], h['industry'])] = cnt.get((h['country'], h['industry']), 0) + 1
+    cap = CFG.get('max_items_per_bucket_day', 6); keep = []
+    for it in items:
+        k = (it['country'], it['industry'])
+        if it['id'] in skip or it['id'] in known: continue
+        if cnt.get(k, 0) >= cap: continue
+        cnt[k] = cnt.get(k, 0) + 1; keep.append(it)
+    print(f'{len(items)} fetched, {len(keep)} new after skipping known/off-topic/over-cap')
+    items = keep
     # ignore-duplicates: never overwrite an item that already has AI summaries
-    print('raw items', len(items), call('POST', 'news_items?on_conflict=id', items, 'resolution=ignore-duplicates,return=minimal')[0])
+    if items:
+        print('raw items', len(items), call('POST', 'news_items?on_conflict=id', items, 'resolution=ignore-duplicates,return=minimal')[0])
     mk = json.load(open(os.path.join(WORK, 'markets.json'), encoding='utf-8')) if os.path.exists(os.path.join(WORK, 'markets.json')) else {}
     if mk:
         rows = [{'sym': k, 'name_zh': v['zh'], 'name_en': v['en'], 'x': v['x'], 'v': v['v'], 'src': v.get('src', ''), 'updated_at': datetime.datetime.now(datetime.timezone.utc).isoformat()} for k, v in mk.items()]
@@ -76,7 +95,7 @@ def main():
                 sys.exit(f'item {it.get("id")} missing {f}')
     if items:
         for it in items:  # enrich existing rows only (PATCH keeps day/url/source from the raw upload)
-            fields = {k: v for k, v in it.items() if k in ('title_zh', 'title_en', 'summary_zh', 'summary_en', 'impact_zh', 'impact_en', 'tags', 'chart_sym', 'story_key')}
+            fields = {k: v for k, v in it.items() if k in ('title_zh', 'summary_zh', 'summary_en', 'impact_zh', 'impact_en', 'tags', 'chart_sym', 'story_key')}
             call('PATCH', 'news_items?id=eq.' + it['id'], fields, 'return=minimal')
         print('enriched', len(items))
     if cur.get('stories'):
