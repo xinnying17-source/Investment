@@ -16,7 +16,7 @@ conf = open(os.path.join(ROOT, 'docs', 'config.js'), encoding='utf-8').read()
 URL = re.search(r"SUPABASE_URL:\s*'([^']+)'", conf).group(1)
 KEY = re.search(r"SUPABASE_ANON_KEY:\s*'([^']+)'", conf).group(1)
 WORK = os.path.join(ROOT, 'news', '_work')
-BATCH = 15            # headlines per Gemini call
+BATCH = 30            # headlines per Gemini call (bigger batches = fewer calls from the daily budget)
 MAX_NEW = 90          # new summaries per run (keeps us well inside the free quota)
 MAX_RECHECK = 45      # older, not-yet-verified summaries re-checked per run
 MAX_FAIL = 2          # runs in a row an item may fail before we stop retrying it
@@ -42,6 +42,31 @@ def _call(model, gc, prompt, key):
 
 _MODELS = None
 _DOWN = False
+# ---- daily call budget shared by every script and every hourly run (news_meta k='gemini_budget')
+LIMIT = int(os.environ.get('GEMINI_DAILY_LIMIT') or '20')  # set the repo variable GEMINI_DAILY_LIMIT to change it
+_BUDGET = None
+
+def _myt_day():
+    return (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=8)).date().isoformat()
+
+def budget():
+    """{'day', 'calls', 'quota_hit'} for today (Malaysia time)."""
+    global _BUDGET
+    if _BUDGET is None:
+        try:
+            r = sb('GET', 'news_meta?k=eq.gemini_budget&select=v'); v = (r[0]['v'] if r else None) or {}
+        except Exception:
+            v = {}
+        _BUDGET = v if v.get('day') == _myt_day() else {'day': _myt_day(), 'calls': 0, 'quota_hit': False}
+    return _BUDGET
+
+def _save_budget():
+    try: sb('POST', 'news_meta?on_conflict=k', [{'k': 'gemini_budget', 'v': _BUDGET}], 'resolution=merge-duplicates,return=minimal')
+    except Exception: pass
+
+def calls_left():
+    b = budget()
+    return 0 if b.get('quota_hit') else max(0, LIMIT - b['calls'])
 
 def models():
     """Pick working models from Google's live list (names get retired, e.g. a hard-coded one returned 404)."""
@@ -64,6 +89,7 @@ def gemini(prompt, temperature=0.2):
     If every model fails, mark Gemini as down for the rest of this run (next hour's run tries again)."""
     global _DOWN
     if _DOWN: raise RuntimeError('Gemini marked unavailable earlier in this run')
+    if calls_left() <= 0: raise RuntimeError(f'daily Gemini budget used ({budget()["calls"]}/{LIMIT}) or quota reached; continuing tomorrow')
     key = os.environ['GEMINI_API_KEY']
     base = {'responseMimeType': 'application/json', 'temperature': temperature}
     errors = []
@@ -71,10 +97,15 @@ def gemini(prompt, temperature=0.2):
         gc = dict(base, thinkingConfig={'thinkingBudget': 0})
         for attempt in range(3):
             try:
-                return _call(m, gc, prompt, key)
+                out = _call(m, gc, prompt, key)
+                budget()['calls'] += 1; _save_budget()  # only successful calls use the daily budget
+                return out
             except urllib.error.HTTPError as e:
                 msg = f'{m}: HTTP {e.code} {e.read().decode()[:120]}'; errors.append(msg)
-                if e.code == 400 and 'thinking' in msg.lower() and 'thinkingConfig' in gc:
+                if e.code == 429 and 'quota' in msg.lower():  # daily free quota used up: stop for today, no retries
+                    budget()['quota_hit'] = True; _save_budget(); _DOWN = True
+                    raise RuntimeError('Gemini daily quota reached; continuing tomorrow')
+                if e.code == 400 and 'thinkingConfig' in gc:  # some models reject thinkingBudget=0: retry without it
                     gc = dict(base); continue
                 if e.code in (429, 500, 503) and attempt < 2:
                     time.sleep(30 * (attempt + 1)); continue
@@ -254,10 +285,15 @@ def summaries(today):
     since7 = (datetime.date.fromisoformat(today) - datetime.timedelta(days=7)).isoformat()
 
     # 1) everything recent without a Chinese summary
-    todo = sb('GET', f'news_items?select=id,title_en,source&day=gte.{since2}&summary_zh=is.null&order=published_at.desc')
+    # deep-analysed items (and their duplicates) are handled by news_deep.py; skip them here
+    try:
+        sb('GET', 'news_items?select=depth&limit=1'); dep = '&depth=in.(brief,nodeep)'
+    except Exception:
+        dep = ''  # news_v2.sql not applied yet
+    todo = sb('GET', f'news_items?select=id,title_en,source&day=gte.{since2}&summary_zh=is.null{dep}&order=published_at.desc')
     todo = [t for t in todo if meta['failed'].get(t['id'], 0) < MAX_FAIL and t['id'] not in skip][:MAX_NEW]
     # 2) older summaries that were never fact-checked by this pipeline
-    old = sb('GET', f'news_items?select=id,title_en,source,summary_zh&day=gte.{since7}&summary_zh=not.is.null')
+    old = sb('GET', f'news_items?select=id,title_en,source,summary_zh&day=gte.{since7}&summary_zh=not.is.null{dep}')
     recheck = [t for t in old if t['id'] not in verified][:MAX_RECHECK]
     print(f'{len(todo)} to summarise, {len(recheck)} older summaries to fact-check')
 
@@ -267,6 +303,8 @@ def summaries(today):
         if o and o != t['title_en']:
             sb('PATCH', 'news_items?id=eq.' + t['id'], {'title_en': o}, 'return=minimal'); t['title_en'] = o; restored += 1
     if restored: print(f'restored {restored} original English headlines')
+    if calls_left() <= 0:
+        print('no Gemini budget left today; summaries continue tomorrow'); return
     srcs = [source_of({**t, 'related': rel.get(t['id'])}, pool) for t in todo + recheck]
     if not srcs: return
     # Older summaries: check what is published now first; only rewrite the ones that fail

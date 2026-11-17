@@ -4,7 +4,7 @@ Writes news/_work/candidates.json and news/_work/markets.json (git-ignored scrat
 Sources: Google News RSS search (headlines + links only), Yahoo chart API with Stooq as fallback.
 Run:  python3 scripts/news_fetch.py
 """
-import json, os, re, html, sys, time, hashlib, urllib.parse, urllib.request, csv, io
+import json, os, re, html, sys, time, hashlib, datetime, email.utils, urllib.parse, urllib.request, csv, io
 import xml.etree.ElementTree as ET
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CFG = json.load(open(os.path.join(ROOT, 'news', 'buckets.json'), encoding='utf-8'))
@@ -37,6 +37,29 @@ def related(desc, title):
         if h and h.lower() not in title.lower():
             out.append(h + (' - ' + srcs[i] if i < len(srcs) and srcs[i] else ''))
     return out[:5]
+
+def direct_items(max_age_h=36):
+    """Articles from publishers whose RSS links open to the full text (used for deep analysis)."""
+    out, seen = [], set()
+    for f in CFG.get('direct_feeds', []):
+        try:
+            root = ET.fromstring(get(f['url']))
+        except Exception as e:
+            print('direct feed fail', f['name'], e, file=sys.stderr); continue
+        for it in root.iter('item'):
+            title = html.unescape((it.findtext('title') or '').strip()); link = (it.findtext('link') or '').strip()
+            if not title or not link or link in seen: continue
+            try:
+                pub = email.utils.parsedate_to_datetime(it.findtext('pubDate'))
+                if (datetime.datetime.now(datetime.timezone.utc) - pub).total_seconds() > max_age_h * 3600: continue
+                pub = pub.isoformat()
+            except Exception:
+                pub = None
+            seen.add(link)
+            out.append({'id': hashlib.sha1(link.encode()).hexdigest()[:16], 'title': title, 'url': link, 'published': pub,
+                        'source': f['name'], 'country': f['country']})
+        time.sleep(0.3)
+    return out
 
 def market(m):
     try:
@@ -73,15 +96,16 @@ def main():
                 it.update({'id': hashlib.sha1(it['url'].encode()).hexdigest()[:16], 'country': country, 'industry': ind['key']})
                 cands.append(it)
             time.sleep(0.5)
+    direct = direct_items()
     mk = {}
     for m in CFG['markets']:
         d = market(m)
         if d:
             mk[m['sym']] = {**d, 'zh': m['zh'], 'en': m['en']}
-    json.dump({'fetched_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'items': cands, 'errors': errors},
+    json.dump({'fetched_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'items': cands, 'direct': direct, 'errors': errors},
               open(os.path.join(WORK, 'candidates.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     json.dump(mk, open(os.path.join(WORK, 'markets.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
-    print(f'{len(cands)} candidate headlines, {len(mk)}/{len(CFG["markets"])} markets, {len(errors)} bucket errors')
+    print(f'{len(direct)} direct articles (full-text sources), {len(cands)} candidate headlines, {len(mk)}/{len(CFG["markets"])} markets, {len(errors)} bucket errors')
     if errors:
         print('\n'.join(errors[:10]), file=sys.stderr)
 

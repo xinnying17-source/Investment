@@ -79,7 +79,12 @@ def main_raw():
         rows = [{'sym': k, 'name_zh': v['zh'], 'name_en': v['en'], 'x': v['x'], 'v': v['v'], 'src': v.get('src', ''), 'updated_at': datetime.datetime.now(datetime.timezone.utc).isoformat()} for k, v in mk.items()]
         print('markets', call('POST', 'market_snap?on_conflict=sym', rows, 'resolution=merge-duplicates,return=minimal')[0])
     cutoff = (datetime.date.today() - datetime.timedelta(days=CFG['keep_days'])).isoformat()
-    print('cleanup', call('DELETE', 'news_items?day=lt.' + cutoff, prefer='return=minimal')[0])
+    deep_cutoff = (datetime.date.today() - datetime.timedelta(days=CFG.get('keep_days_deep', 180))).isoformat()
+    try:  # deep analyses are kept longer: they are the history behind the timeline of related news
+        print('cleanup', call('DELETE', 'news_items?day=lt.' + cutoff + '&depth=neq.deep', prefer='return=minimal')[0],
+              call('DELETE', 'news_items?day=lt.' + deep_cutoff, prefer='return=minimal')[0])
+    except Exception:  # news_v2.sql not applied yet (no depth column)
+        print('cleanup', call('DELETE', 'news_items?day=lt.' + cutoff, prefer='return=minimal')[0])
     meta = {'k': 'last_run', 'v': {'at': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'items': len(items), 'status': 'ok'}}
     print('meta', call('POST', 'news_meta?on_conflict=k', [meta], 'resolution=merge-duplicates,return=minimal')[0])
 
