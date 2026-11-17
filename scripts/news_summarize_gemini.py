@@ -196,7 +196,8 @@ RULES = """STRICT ACCURACY RULES (most important):
 - You MAY explain a jargon word with a short textbook definition in brackets, e.g. 周期股（业绩跟着经济起伏的股票）.
 - impact: one sentence of GENERAL investing education about this KIND of news, starting like "这类消息通常…" / "News like this usually…". It must not state anything new about this specific event and never give buy/sell advice.
 - tags: "up" or "down" only if the headline itself clearly says something rose/fell or is clearly good/bad news for the sector; otherwise "watch".
-STYLE: Simplified Chinese must be natural everyday Malaysian-Chinese language, short sentences, no copied English sentences. English plain and simple."""
+STYLE: Simplified Chinese must be natural everyday Malaysian-Chinese language, short sentences, no copied English sentences. English plain and simple.
+NAMES: keep company names, people, organisations, products and tickers in ENGLISH exactly as in the headline (e.g. Kenanga Investment Bank, Gamuda, Huatai Securities, Bank Negara Malaysia); never transliterate or translate names into Chinese. Common terms may add Chinese in brackets, e.g. 隔夜政策利率（OPR）."""
 
 def write(items, feedback=None):
     fb = ('\nA fact-checker rejected your earlier version of these items. Fix exactly these problems, and when unsure say less:\n' +
