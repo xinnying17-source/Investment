@@ -32,32 +32,27 @@ def sb(method, path, body=None, prefer=None):
         t = r.read().decode()
         return json.loads(t) if t.strip().startswith(('[', '{')) else t
 
-def _call(model, gc, prompt, key):
-    body = {'contents': [{'parts': [{'text': prompt}]}], 'generationConfig': gc}
-    req = urllib.request.Request(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent', data=json.dumps(body).encode(),
-                                 headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
-    with urllib.request.urlopen(req, timeout=150) as r:
-        out = json.load(r)
-    return json.loads(out['candidates'][0]['content']['parts'][0]['text'])
-
 _MODELS = None
 _DOWN = False
-# ---- daily call budget shared by every script and every hourly run (news_meta k='gemini_budget')
-LIMIT = int(os.environ.get('GEMINI_DAILY_LIMIT') or '20')  # set the repo variable GEMINI_DAILY_LIMIT to change it
+# ---- daily usage record shared by every script and every hourly run (news_meta k='gemini_budget').
+# Google's free quota is PER MODEL, so a model that reports "quota used up" is skipped for the rest of the
+# Malaysian day and the next model is tried (Gemini flash models first, then Gemma, whose free quota is much larger).
+LIMIT = int(os.environ.get('GEMINI_DAILY_LIMIT') or '300')  # safety cap on successful calls per day (repo variable GEMINI_DAILY_LIMIT)
 _BUDGET = None
 
 def _myt_day():
     return (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=8)).date().isoformat()
 
 def budget():
-    """{'day', 'calls', 'quota_hit'} for today (Malaysia time)."""
+    """{'day', 'calls', 'exhausted': [models whose daily quota is used up]} for today (Malaysia time)."""
     global _BUDGET
     if _BUDGET is None:
         try:
             r = sb('GET', 'news_meta?k=eq.gemini_budget&select=v'); v = (r[0]['v'] if r else None) or {}
         except Exception:
             v = {}
-        _BUDGET = v if v.get('day') == _myt_day() else {'day': _myt_day(), 'calls': 0, 'quota_hit': False}
+        _BUDGET = v if v.get('day') == _myt_day() else {'day': _myt_day(), 'calls': 0}
+        _BUDGET.setdefault('exhausted', []); _BUDGET.pop('quota_hit', None)
     return _BUDGET
 
 def _save_budget():
@@ -66,10 +61,13 @@ def _save_budget():
 
 def calls_left():
     b = budget()
-    return 0 if b.get('quota_hit') else max(0, LIMIT - b['calls'])
+    if models() and all(m in b['exhausted'] for m in models()): return 0
+    return max(0, LIMIT - b['calls'])
+
+def is_gemma(m): return m.startswith('gemma')
 
 def models():
-    """Pick working models from Google's live list (names get retired, e.g. a hard-coded one returned 404)."""
+    """Working models from Google's live list (names get retired): Gemini flash models first, then the largest Gemma."""
     global _MODELS
     if _MODELS is not None: return _MODELS
     want = [os.environ.get('GEMINI_MODEL') or '', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest']
@@ -78,39 +76,61 @@ def models():
         with urllib.request.urlopen(req, timeout=30) as r:
             live = {m['name'].split('/', 1)[1] for m in json.load(r).get('models', []) if 'generateContent' in m.get('supportedGenerationMethods', [])}
         flash = sorted((m for m in live if re.fullmatch(r'gemini-\d+(\.\d+)?-flash(-lite)?', m)), reverse=True)
-        _MODELS = [m for m in dict.fromkeys(want + flash) if m and m in live][:4] or [m for m in want if m]
+        def size(m):
+            n = re.search(r'-(\d+)b-', m); return (int(re.search(r'gemma-(\d+)', m).group(1)), int(n.group(1)) if n else 0)
+        gemma = sorted((m for m in live if re.fullmatch(r'gemma-\d+n?-\d+b-it', m)), key=size, reverse=True)[:2]
+        _MODELS = [m for m in dict.fromkeys(want + flash[:3]) if m and m in live][:5] + gemma
+        if not _MODELS: _MODELS = [m for m in want if m]
     except Exception as e:
         print('model list unavailable, using defaults:', type(e).__name__); _MODELS = [m for m in want if m]
     print('Gemini models:', ', '.join(_MODELS))
     return _MODELS
 
+def _json_from_text(t):
+    """Gemma has no JSON mode: take the JSON object out of its text reply."""
+    t = re.sub(r'^```(?:json)?\s*|\s*```\s*$', '', t.strip())
+    i, j = t.find('{'), t.rfind('}')
+    return json.loads(t[i:j + 1])
+
+def _call(model, gc, prompt, key):
+    body = {'contents': [{'parts': [{'text': prompt}]}], 'generationConfig': gc}
+    req = urllib.request.Request(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent', data=json.dumps(body).encode(),
+                                 headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
+    with urllib.request.urlopen(req, timeout=180) as r:
+        out = json.load(r)
+    text = ''.join(p.get('text', '') for p in out['candidates'][0]['content']['parts'])
+    return _json_from_text(text) if is_gemma(model) else json.loads(text)
+
 def gemini(prompt, temperature=0.2):
-    """Thinking off (fast). Busy (429/500/503) or timeout: wait 30s then 60s and retry, then try the next model.
-    If every model fails, mark Gemini as down for the rest of this run (next hour's run tries again)."""
+    """Busy (429 rate/500/503) or timeout: wait and retry, then try the next model.
+    'Quota used up' (429 quota): that model is skipped for the rest of the day, next model tried at once.
+    If every model fails, stop calling for the rest of this run (next hour's run tries again)."""
     global _DOWN
     if _DOWN: raise RuntimeError('Gemini marked unavailable earlier in this run')
-    if calls_left() <= 0: raise RuntimeError(f'daily Gemini budget used ({budget()["calls"]}/{LIMIT}) or quota reached; continuing tomorrow')
+    if calls_left() <= 0: raise RuntimeError(f'no model with quota left today ({budget()["calls"]} calls used); continuing tomorrow')
     key = os.environ['GEMINI_API_KEY']
-    base = {'responseMimeType': 'application/json', 'temperature': temperature}
     errors = []
     for m in models():
-        gc = dict(base, thinkingConfig={'thinkingBudget': 0})
+        if m in budget()['exhausted']: continue
+        if is_gemma(m):  # Gemma: no JSON mode / thinking settings; ask for JSON in the prompt instead
+            gc = {'temperature': temperature}; p = prompt + '\n\nReply with ONLY the JSON object, no other text.'
+        else:
+            gc = {'responseMimeType': 'application/json', 'temperature': temperature, 'thinkingConfig': {'thinkingBudget': 0}}; p = prompt
         for attempt in range(3):
             try:
-                out = _call(m, gc, prompt, key)
-                budget()['calls'] += 1; _save_budget()  # only successful calls use the daily budget
+                out = _call(m, gc, p, key)
+                budget()['calls'] += 1; _save_budget()  # only successful calls are counted
                 return out
             except urllib.error.HTTPError as e:
-                msg = f'{m}: HTTP {e.code} {e.read().decode()[:120]}'; errors.append(msg)
-                if e.code == 429 and 'quota' in msg.lower():  # daily free quota used up: stop for today, no retries
-                    budget()['quota_hit'] = True; _save_budget(); _DOWN = True
-                    raise RuntimeError('Gemini daily quota reached; continuing tomorrow')
+                msg = f'{m}: HTTP {e.code} {e.read().decode()[:160]}'; errors.append(msg)
+                if e.code == 429 and 'quota' in msg.lower() and ('per day' in msg.lower() or 'perday' in msg.lower() or 'daily' in msg.lower() or 'limit: 0' in msg.lower() or attempt > 0):
+                    budget()['exhausted'].append(m); _save_budget(); print(f'{m}: daily quota used up, switching model'); break
                 if e.code == 400 and 'thinkingConfig' in gc:  # some models reject thinkingBudget=0: retry without it
-                    gc = dict(base); continue
+                    gc = {k: v for k, v in gc.items() if k != 'thinkingConfig'}; continue
                 if e.code in (429, 500, 503) and attempt < 2:
                     time.sleep(30 * (attempt + 1)); continue
                 break
-            except (TimeoutError, urllib.error.URLError, json.JSONDecodeError, KeyError, IndexError) as e:
+            except (TimeoutError, urllib.error.URLError, json.JSONDecodeError, ValueError, KeyError, IndexError) as e:
                 errors.append(f'{m}: {type(e).__name__}')
                 if attempt < 1:
                     continue
@@ -176,7 +196,8 @@ RULES = """STRICT ACCURACY RULES (most important):
 - You MAY explain a jargon word with a short textbook definition in brackets, e.g. 周期股（业绩跟着经济起伏的股票）.
 - impact: one sentence of GENERAL investing education about this KIND of news, starting like "这类消息通常…" / "News like this usually…". It must not state anything new about this specific event and never give buy/sell advice.
 - tags: "up" or "down" only if the headline itself clearly says something rose/fell or is clearly good/bad news for the sector; otherwise "watch".
-STYLE: Simplified Chinese must be natural everyday Malaysian-Chinese language, short sentences, no copied English sentences. English plain and simple."""
+STYLE: Simplified Chinese must be natural everyday Malaysian-Chinese language, short sentences, no copied English sentences. English plain and simple.
+NAMES: keep company names, people, organisations, products and tickers in ENGLISH exactly as in the headline (e.g. Kenanga Investment Bank, Gamuda, Huatai Securities, Bank Negara Malaysia); never transliterate or translate names into Chinese. Common terms may add Chinese in brackets, e.g. 隔夜政策利率（OPR）."""
 
 def write(items, feedback=None):
     fb = ('\nA fact-checker rejected your earlier version of these items. Fix exactly these problems, and when unsure say less:\n' +

@@ -112,11 +112,11 @@ SOURCE: numbered sentences from the original article(s) are given as {"s": id, "
 STRICT RULES:
 - Every sentence you write must list the ids of the source sentences that support it in "c". A sentence with no support must not be written.
 - Never add facts, names, numbers, dates, quotes, causes or outcomes that are not in the cited sentences. Keep forecasts/claims/plans as forecasts/claims/plans and say who said them.
-- Chinese: natural Simplified Chinese, short paragraphs. Keep company names, people, organisations, products, tickers and technical terms in ENGLISH (e.g. Nvidia, Bank Negara Malaysia, OPR, Bursa Malaysia, Jensen Huang); for common terms you may add Chinese in brackets the first time, e.g. 隔夜政策利率（OPR）. Do not force-translate proper names.
+- Chinese: natural Simplified Chinese, short paragraphs. Keep company names, people (do not transliterate names, e.g. write Rob Bonta, not 罗伯·邦塔), organisations, products, tickers and technical terms in ENGLISH (e.g. Nvidia, Bank Negara Malaysia, OPR, Bursa Malaysia, Jensen Huang); for common terms you may add Chinese in brackets the first time, e.g. 隔夜政策利率（OPR）. Do not force-translate proper names.
 - Cover the whole story: what happened, who, numbers, why (as reported), reactions, what comes next (as reported). Do not shorten into a summary; 4-8 paragraphs.
 - 'meaning' is YOUR analysis for a beginner: what this means for markets, sectors and ordinary investors in Malaysia. It may use general economic knowledge but no new facts about this event; write it as analysis.
 - 'stocks': only symbols from the ALLOWED STOCKS list, only when the story clearly concerns that company or its sector; effect is up/down/mixed/watch, with a one-sentence reason. Empty list if none fit.
-- 'keywords': 4-8 lowercase English names/topics for linking related news over time (companies, people, institutions, themes like "opr", "palm oil", "data centre")."""
+- 'keywords': 4-8 lowercase English names/topics for linking related news over time. Use plain canonical names: countries ("japan"), companies ("nvidia"), people ("jensen huang"), institutions ("bank of japan"), themes ("gdp", "opr", "palm oil", "data centre")."""
 
 def write(src_sents, event, industries, feedback=None):
     allowed = '\n'.join(f"{y}: {s['name']} ({s['sector']})" for y, s in STOCKS.items())
@@ -132,18 +132,24 @@ Return JSON:
 "points":[{{"zh":"key fact or number","en":"...","c":[ids]}}],          // 3-6
 "meaning_zh":"3-5 sentences","meaning_en":"...",
 "stocks":[{{"y":"symbol from list","effect":"up|down|mixed|watch","zh":"reason","en":"reason"}}],
-"keywords":["..."],"industry":"one of {industries}","irrelevant":false}}   // irrelevant=true if this is not about business/markets/economy
+"keywords":["..."],"country":"my if the story is mainly about Malaysia, otherwise global","industry":"one of {industries}","irrelevant":false}}   // irrelevant=true if this is not about business/markets/economy
 SOURCE SENTENCES:
 """ + '\n'.join(json.dumps({'s': i, 't': t}, ensure_ascii=False) for i, t in src_sents)
     return gemini(prompt, 0.2)
 
 # ------------------------------------------------------------------ main
+KW_STOP = {'the', 'of', 'and', 'in', 'on', 'for', 'to', 'us', 'news', 'market', 'markets', 'rate', 'rates', 'price', 'prices'}
+def kw_tokens(kws):
+    return {w for k in kws for w in re.findall(r'[a-z0-9]+', k.lower()) if len(w) > 1 and w not in KW_STOP}
+
 def related_ids(keywords, exclude, since):
+    """Earlier deep analyses about the same story: compare keyword WORDS (the AI words keywords differently each time,
+    e.g. 'japan gdp' vs 'gdp' + 'japan economy'), needs 3+ shared words. No AI tokens used."""
     if not keywords: return []
-    kw = ','.join('"' + k.replace('"', '') + '"' for k in keywords[:8])
-    rows = sb('GET', f'news_items?select=id,keywords,day&depth=eq.deep&day=gte.{since}&keywords=ov.{{{urllib.parse.quote(kw)}}}&order=day.desc&limit=40')
-    scored = sorted(((len(set(r['keywords']) & set(keywords)), r['day'], r['id']) for r in rows if r['id'] not in exclude), reverse=True)
-    return [i for s, d, i in scored if s >= 2][:6]
+    mine = kw_tokens(keywords)
+    rows = sb('GET', f'news_items?select=id,keywords,day&depth=eq.deep&day=gte.{since}&order=day.desc&limit=400')
+    scored = sorted(((len(kw_tokens(r['keywords']) & mine), r['day'], r['id']) for r in rows if r['id'] not in exclude), reverse=True)
+    return [i for n, d, i in scored if n >= 3][:6]
 
 def main():
     if not os.environ.get('GEMINI_API_KEY') or not os.environ.get('INGEST_KEY'):
@@ -154,6 +160,11 @@ def main():
         done_today = sb('GET', f'news_items?select=id&day=eq.{today}&depth=eq.deep')
     except Exception as e:
         print('::warning::news_v2.sql not applied yet (no depth column?):', str(e)[:200]); return
+    # backfill the backstory links of recent analyses (keyword words only, no AI tokens)
+    since = (myt.date() - datetime.timedelta(days=180)).isoformat()
+    for r in sb('GET', f'news_items?select=id,keywords,related&depth=eq.deep&day=gte.{(myt.date() - datetime.timedelta(days=3)).isoformat()}'):
+        rel = related_ids(r['keywords'], {r['id']}, since)
+        if rel and rel != r['related']: sb('PATCH', 'news_items?id=eq.' + r['id'], {'related': rel}, 'return=minimal')
     # deep analysis gets first claim on the daily budget, but leaves ~1/4 of it for the short summaries
     reserve = max(2, LIMIT // 4)
     room = min(PER_RUN, PER_DAY - len(done_today), max(0, (calls_left() - reserve) // 2))
@@ -198,14 +209,14 @@ def main():
             for x in sentences(t)[:per]:
                 n += 1; sid[n] = x; owner[n] = si
         try:
-            res = write(list(sid.items()), g, inds[lead['country']])
+            res = write(list(sid.items()), g, inds)
             if res.get('irrelevant'):
                 sb('POST', 'news_items?on_conflict=id', [dict(base, depth='nodeep')], 'resolution=merge-duplicates,return=minimal')
                 print('not business news, skipped:', lead['title'][:60]); continue
             out, probs, dropped = check(res, sid)
             if dropped > 0.25 or len(out['article_zh']) < 2:
                 print(f'rewrite ({dropped:.0%} failed): {lead["title"][:60]}')
-                res = write(list(sid.items()), g, inds[lead['country']], feedback=probs)
+                res = write(list(sid.items()), g, inds, feedback=probs)
                 out, probs, dropped = check(res, sid)
         except RuntimeError as e:
             print('::warning::Gemini unavailable, stopping this run:', str(e)[:200]); break
@@ -217,7 +228,8 @@ def main():
         kws = sorted({str(k).lower().strip()[:40] for k in (res.get('keywords') or []) if str(k).strip()})[:8]
         for p in out['article_zh'] + out['article_en']:
             for ln in p: ln['src'] = sorted({owner[c] for c in ln['c']})
-        row = dict(base, depth='deep', industry=res.get('industry') if res.get('industry') in inds[lead['country']] else base['industry'],
+        ctry = res.get('country') if res.get('country') in inds else lead['country']
+        row = dict(base, depth='deep', country=ctry, industry=res.get('industry') if res.get('industry') in inds[ctry] else inds[ctry][0],
                    title_zh=str(res.get('title_zh', ''))[:200],
                    summary_zh=''.join(l['t'] for l in out['lead_zh']) or None, summary_en=' '.join(l['t'] for l in out['lead_en']) or None,
                    article_zh=json.dumps(out['article_zh'], ensure_ascii=False), article_en=json.dumps(out['article_en'], ensure_ascii=False),
